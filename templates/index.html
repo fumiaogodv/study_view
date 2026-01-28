@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的学习空间</title>
+    <link rel="stylesheet" href="/static/css/index.css">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    /* 定义有记录日期的样式：带一个绿色的小圆点 */
+    .has-record {
+        background: rgba(76, 175, 80, 0.3) !important;
+        border-radius: 50% !important;
+        font-weight: bold;
+    }
+</style>
+
+</head>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<body>
+
+    <button class="toggle-btn" id="btn-calendar-toggle" onclick="togglePanel('calendar-panel')">📅</button>
+
+<div class="glass-panel history-section" id="calendar-panel">
+    <h3 style="margin-top:0">学习历史</h3>
+    <input type="text" id="calendarPicker"> </div>
+
+    <div id="bg-container">
+        <video id="bg-video" autoplay muted loop>
+            <source src="/static/videos/nature.mp4" type="video/mp4">
+        </video>
+    </div>
+
+    <button class="toggle-btn" id="btn-timer-toggle" onclick="togglePanel('timer-panel')">⏱️</button>
+    <button class="toggle-btn" id="btn-task-toggle" onclick="togglePanel('task-panel')">📝</button>
+
+    <div class="glass-panel timer-section" id="timer-panel">
+        <h2>专注时钟</h2>
+        <div class="timer-display" id="display">00:00</div>
+
+        <input type="text" id="taskName" placeholder="现在要学点什么？" value="高等数学">
+        <textarea id="note" placeholder="备注 (可选)"></textarea>
+
+        <button class="action-btn" onclick="handleTimerClick()" id="startBtn">开始学习</button>
+    </div>
+
+    <button class="toggle-btn" id="btn-music-toggle" onclick="togglePanel('music-panel')" style="bottom: 20px; right: 80px;">🎵</button>
+
+<div class="glass-panel music-section" id="music-panel">
+    <div class="player-container">
+        <div class="current-info">
+            <img src="/static/music/img.png" class="album-cover" id="music-cover">
+            <div class="song-details">
+                <h4 id="song-title">等待播放...</h4>
+                <p id="song-artist">本地音乐</p>
+            </div>
+        </div>
+
+        <div class="progress-area">
+            <input type="range" id="progress" value="0" max="100">
+            <div class="time-stamp">
+                <span id="current-time">00:00</span>
+                <span id="total-time">00:00</span>
+            </div>
+        </div>
+
+        <div class="player-controls">
+            <button onclick="prevMusic()">⏮</button>
+            <button onclick="togglePlay()" id="play-pause">▶</button>
+            <button onclick="nextMusic()">⏭</button>
+        </div>
+
+        <div class="music-list record-container">
+            <div class="music-item" onclick="playSpecific(0)">1. DJ Okawari - Luv Letter</div>
+            <div class="music-item" onclick="playSpecific(1)">2. 和田薫 - 穿越时空的思念</div>
+            <div class="music-item" onclick="playSpecific(2)">3. 风居住的街道</div>
+            <div class="music-item" onclick="playSpecific(3)">4. 折戸伸治 - 潮鸣</div>
+            <div class="music-item" onclick="playSpecific(4)">5. Always With Me</div>
+            <div class="music-item" onclick="playSpecific(5)">6. 宗次郎 - 故乡的原风景</div>
+            <div class="music-item" onclick="playSpecific(6)">7. 久石让 - Summer</div>
+        </div>
+    </div>
+</div>
+
+<audio id="main-audio" src=""></audio>
+
+
+    <div class="glass-panel task-detail-section" id="task-panel">
+        <h3>📊 任务明细</h3>
+        <div id="recordList" class="record-container">
+            </div>
+    </div>
+
+    <script src="/static/js/index.js"></script>
+</body>
+</html>

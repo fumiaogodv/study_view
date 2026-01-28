@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  study_view:
+    image: study_view:dev        # 👈 明确给开发镜像命名
+    build: .
+    container_name: view_dev
+
+    ports:
+      - "5000:5000"
+
+    volumes:
+      # 🔥 代码实时同步（开发核心）
+      - .:/app
+
+    environment:
+      - FLASK_ENV=development
+
+    restart: unless-stopped

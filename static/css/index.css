@@ -1,0 +1,365 @@
+:root {
+    --glass: rgba(255, 255, 255, 0.15);
+    --glass-heavy: rgba(255, 255, 255, 0.25);
+    --accent: #4CAF50;
+    --text-color: #ffffff;
+}
+
+body, html {
+    margin: 0; padding: 0; height: 100%;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    overflow: hidden; color: var(--text-color);
+}
+
+/* 1. 全屏背景 */
+#bg-container {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+}
+#bg-video { width: 100%; height: 100%; object-fit: cover; }
+
+/* 2. 通用磨砂面板样式 */
+.glass-panel {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    position: fixed;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 10;
+    box-sizing: border-box !important;
+}
+
+/* 3. 时钟模块 (左上角) */
+.timer-section {
+    top: 80px; left: 20px; width: 320px; text-align: center; padding: 20px;
+    transform: translateX(-120%);
+}
+.timer-section.active { transform: translateX(0); }
+.timer-display { font-size: 50px; font-weight: bold; font-family: 'Courier New', monospace; }
+
+/* 4. 日历模块 (右上角 - 修改为点击滑入) */
+.history-section {
+    top: 80px; right: 20px; width: 310px;
+    padding: 15px;
+    transform: translateX(120%); /* 默认隐藏在右侧外 */
+}
+.history-section.active { transform: translateX(0); }
+
+/* 5. 任务详情模块 (右下角) */
+.task-detail-section {
+    bottom: 80px; right: 20px; width: 320px; height: 40vh;
+    transform: translateY(150%);
+}
+.task-detail-section.active { transform: translateY(0); }
+
+/* 6. 功能触发按钮 (悬浮球样式) */
+.toggle-btn {
+    position: fixed; width: 50px; height: 50px; border-radius: 50%;
+    background: var(--glass-heavy); backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.3); color: white;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    z-index: 20; font-size: 22px; transition: 0.3s;
+}
+.toggle-btn:hover { background: var(--accent); transform: scale(1.1); }
+
+#btn-timer-toggle { top: 20px; left: 20px; }      /* 左上按钮 */
+#btn-calendar-toggle { top: 20px; right: 20px; }   /* 右上按钮 (新) */
+#btn-task-toggle { bottom: 20px; right: 20px; }    /* 右下按钮 */
+
+/* 7. Flatpickr 深度美化 (解决你说的别扭感) */
+.flatpickr-calendar {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: 280px !important;
+}
+.flatpickr-day, .flatpickr-weekday, .flatpickr-month, .cur-month {
+    color: white !important; fill: white !important;
+}
+.flatpickr-day:hover { background: rgba(255,255,255,0.2) !important; }
+.flatpickr-day.today { border-color: var(--accent) !important; }
+.flatpickr-day.selected { background: var(--accent) !important; border: none !important; }
+
+/* 打卡成功的样式 */
+.has-record {
+    background: rgba(76, 175, 80, 0.5) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.4);
+}
+
+/* 8. 内部组件美化 */
+.record-container {
+    flex-grow: 1; overflow-y: auto; margin-top: 10px; padding-right: 5px;
+}
+.record-item {
+    background: rgba(255,255,255,0.1); margin-bottom: 8px;
+    padding: 12px; border-radius: 10px; position: relative;
+}
+
+input, textarea, button.action-btn {
+    width: 100%; box-sizing: border-box; margin-top: 10px; padding: 12px;
+    border-radius: 8px; border: none; background: rgba(255,255,255,0.1);
+    color: white; outline: none;
+}
+button.action-btn { background: var(--accent); font-weight: bold; cursor: pointer; }
+
+/* 隐藏原本丑陋的输入框，只留日历面板 */
+#calendarPicker { display: none; }
+
+/* 优化日历面板容器 */
+.history-section {
+    top: 80px;
+    right: 20px;
+    width: 340px; /* 稍微加宽面板，确保日历不贴边 */
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* 让日历居中 */
+}
+
+/* 强制调整 flatpickr 宽度适配面板 */
+.flatpickr-calendar {
+    width: 300px !important; /* 调整为比面板略窄 */
+}
+
+.flatpickr-innerContainer {
+    width: 100%;
+}
+
+.flatpickr-rContainer {
+    width: 100%;
+}
+
+.flatpickr-days {
+    width: 100% !important;
+}
+
+.dayContainer {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* 修复月份下拉菜单样式 */
+.flatpickr-monthDropdown-months {
+    background: #444 !important; /* 深色背景 */
+    color: white !important;
+    border: none;
+    outline: none;
+}
+
+/* 修复下拉列表选项（在某些浏览器中生效） */
+.flatpickr-monthDropdown-month {
+    background: #333 !important;
+    color: white !important;
+}
+
+/* 修复年份输入框 */
+.numInputWrapper input {
+    color: white !important;
+}
+
+.numInputWrapper span {
+    border-color: rgba(255,255,255,0.3) !important;
+}
+
+.has-record {
+    background: rgba(76, 175, 80, 0.6) !important; /* 提高一点不透明度 */
+    border-radius: 50% !important;
+    color: white !important;
+    box-shadow: 0 0 8px rgba(76, 175, 80, 0.5); /* 增加发光感 */
+}
+
+/* 悬停在有记录的日期上时稍微亮一点 */
+.has-record:hover {
+    background: rgba(76, 175, 80, 0.8) !important;
+}
+
+/* --- 音乐播放器面板 (左下角弹出) --- */
+.music-section {
+    bottom: 80px;      /* 留出下方按钮的空间 */
+    left: 20px;        /* 关键修改：从右边挪到左边 */
+    width: 320px;
+    max-height: 55vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(150%); /* 默认隐藏在屏幕下方 */
+    padding: 20px;
+    z-index: 15;       /* 确保层级高于背景，但低于触发按钮 */
+}
+
+/* 激活状态：向上滑入 */
+.music-section.active {
+    transform: translateY(0);
+}
+
+/* --- 播放器内部 UI 布局 --- */
+.current-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.album-cover {
+    width: 65px;
+    height: 65px;
+    border-radius: 10px;
+    object-fit: cover;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.song-details {
+    overflow: hidden; /* 防止长歌名溢出 */
+}
+
+.song-details h4 {
+    margin: 0;
+    font-size: 1.1em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.song-details p {
+    margin: 5px 0 0;
+    font-size: 0.85em;
+    opacity: 0.7;
+}
+
+/* --- 进度条控制区域 --- */
+.progress-area {
+    margin: 10px 0;
+}
+
+#progress {
+    width: 100%;
+    height: 5px;
+    cursor: pointer;
+    accent-color: var(--accent); /* 进度条颜色使用你定义的绿色 */
+    outline: none;
+}
+
+.time-stamp {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75em;
+    margin-top: 5px;
+    opacity: 0.6;
+    font-family: monospace;
+}
+
+/* --- 播放器控制按钮 (上一首/播放/下一首) --- */
+.player-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+    margin: 10px 0 20px 0;
+}
+
+.player-controls button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 26px;
+    cursor: pointer;
+    transition: transform 0.2s, color 0.2s;
+}
+
+.player-controls button:hover {
+    color: var(--accent);
+    transform: scale(1.2);
+}
+
+/* --- 歌单列表样式 (集成在面板底部) --- */
+.music-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 5px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 10px;
+}
+
+.music-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 0.85em;
+    cursor: pointer;
+    background: rgba(255,255,255,0.05);
+    transition: 0.3s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.music-item:hover {
+    background: rgba(255,255,255,0.15);
+}
+
+/* 正在播放的歌曲高亮样式 */
+.music-item.active-song {
+    border-left: 4px solid var(--accent);
+    background: rgba(255,255,255,0.2);
+    padding-left: 15px;
+    font-weight: bold;
+}
+
+/* --- 触发按钮定位 --- */
+#btn-music-toggle {
+    bottom: 20px;
+    left: 80px; /* 位于左下角，距离时钟按钮 (20px) 有一定间隔 */
+}
+
+/* 强制所有元素盒模型对齐，防止撑破 */
+.music-section * {
+    box-sizing: border-box !important;
+}
+
+/* 唱片旋转动画 */
+@keyframes rotateAlbum {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.album-cover {
+    width: 65px;
+    height: 65px;
+    border-radius: 50%; /* 圆形 */
+    object-fit: cover;
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    border: 2px solid rgba(255,255,255,0.2);
+    /* 默认不旋转 */
+    animation: rotateAlbum 5s linear infinite;
+    animation-play-state: paused;
+}
+
+/* 播放时启动旋转 */
+.playing .album-cover {
+    animation-play-state: running;
+}
+
+/* 修改图片为圆形并添加旋转 */
+.album-cover {
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.3);
+    transition: transform 0.5s;
+    animation: rotateAlbum 8s linear infinite;
+    animation-play-state: paused; /* 默认停止 */
+}
+
+/* 当 music-panel 拥有 playing 类时旋转 */
+.music-section.playing .album-cover {
+    animation-play-state: running;
+}
+
+@keyframes rotateAlbum {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

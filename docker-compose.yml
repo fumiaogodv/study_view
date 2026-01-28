@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  study_view:
+    # 关键修改 1：加上 build: .
+    # 作用：让你能直接用 docker-compose build 生成这个镜像，而不用手敲 docker build -t ...
+    build: .
+
+    # 关键修改 2：修正拼写 lateast -> latest
+    image: 0424godv/study_view:latest
+
+    # 建议修改：名字改成 ass-prod 或者保持你喜欢的 bss
+    container_name: view-prod
+
+    ports:
+      - "5000:5000"
+
+    volumes:
+      - ./instance:/app/instance # 只挂载数据库，保证学习记录不丢
+
+    environment:
+      # 核心：生产环境模式
+      - FLASK_ENV=production
+
+    restart: unless-stopped

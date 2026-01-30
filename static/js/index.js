@@ -2,6 +2,14 @@ let timer;
 let secondsElapsed = 0;
 let isRunning = false;
 let recordedDates = []; // 存储有记录的日期
+let isTimerSave = false;
+
+
+function getToday() {
+    return new Date().toLocaleDateString('en-CA');
+}
+
+
 
 // 1. 面板显示/隐藏
 function togglePanel(panelId) {
@@ -21,19 +29,22 @@ async function handleTimerClick() {
         btn.innerText = "停止并保存";
         btn.style.background = "#f44336";
         isRunning = true;
+        isTimerSave = true;   // ✅ 标记：这是计时器保存
     } else {
         clearInterval(timer);
         isRunning = false;
         btn.innerText = "开始学习";
         btn.style.background = "#4CAF50";
 
-        await saveStudyData(); // 保存
+        await saveStudyData();
 
         document.getElementById('task-panel').classList.add('active');
         secondsElapsed = 0;
         display.innerText = "00:00";
+        isTimerSave = false;
     }
 }
+
 
 function updateTimer() {
     secondsElapsed++;
@@ -47,20 +58,23 @@ function updateTimer() {
 async function saveStudyData() {
     const taskName = document.getElementById('taskName').value;
     const note = document.getElementById('note').value;
-    const duration = Math.floor(secondsElapsed / 60);
 
-    if (duration < 1 && secondsElapsed > 0) {
+    const durationSec = secondsElapsed;
+    const durationMin = Math.floor(durationSec / 60);
+
+    if (durationSec < 60 && durationSec > 0) {
         if (!confirm("学习时间不到1分钟，确定要记录吗？")) return;
     }
 
-    // 获取本地 YYYY-MM-DD
-    const localDate = new Date().toLocaleDateString('en-CA');
+    const localDate = getToday();
+    const selectedDate = document.getElementById('calendarPicker').value;
 
     const data = {
         task_name: taskName || "未命名任务",
-        duration: duration,
+        duration_sec: durationSec,          // ✅ 秒
+        duration_min: durationMin,          // 兼容旧后端可留
         note: note,
-        date: document.getElementById('calendarPicker').value || localDate
+        date: isTimerSave ? localDate : (selectedDate || localDate)
     };
 
     const response = await fetch('/api/record', {
@@ -70,10 +84,11 @@ async function saveStudyData() {
     });
 
     if (response.ok) {
-        await updateCalendarData(); // 刷新日历标记
-        loadRecords(data.date);    // 刷新明细
+        await updateCalendarData();
+        loadRecords(data.date);
     }
 }
+
 
 // 4. 加载记录 (增加删除按钮)
 async function loadRecords(selectedDate) {
@@ -93,7 +108,9 @@ async function loadRecords(selectedDate) {
         <div class="record-item" style="position:relative;">
             <div style="display:flex; justify-content:space-between; font-weight:bold; padding-right:25px;">
                 <span>${r.task_name}</span>
-                <span style="color:#4CAF50;">${r.duration} min</span>
+                <span style="color:#4CAF50;">
+            ${formatDuration(r.duration_sec)}
+                </span>
             </div>
             <p style="font-size:0.8em; margin:5px 0 0; opacity:0.8;">${r.note || '无备注'}</p>
             <span onclick="deleteItem(${r.id}, '${r.date}')" 
@@ -118,6 +135,16 @@ async function updateCalendarData() {
     recordedDates = await resp.json();
     initCalendar(); // 重新初始化以刷新样式
 }
+
+function formatDuration(sec) {
+    if (sec < 60) return `${sec}s`;
+
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+
+    return s === 0 ? `${m}min` : `${m}m ${s}s`;
+}
+
 
 function initCalendar() {
     flatpickr("#calendarPicker", {
@@ -161,66 +188,86 @@ async function initMusic() {
     }
 }
 
+function removeExt(filename) {
+    return filename.replace(/\.[^/.]+$/, '');
+}
+
+
 // 2. 渲染歌单 (只展示文件名)
 function renderMusicList() {
     const list = document.querySelector('.music-list');
     if (!list) return;
+
     list.innerHTML = musicFiles.map((file, index) => `
         <div class="music-item" id="music-${index}" onclick="playMusic(${index})">
-            ${file.replace('.aac', '')}
+            ${removeExt(file)}
         </div>
     `).join('');
 }
+
+
 
 // 3. 播放逻辑优化
 function playMusic(index) {
     currentMusicIndex = index;
     const fileName = musicFiles[index];
 
-    // 1. 避开 IDM 后缀扫描：在路径后加一个随机查询字符串
-    // 这样 IDM 可能会认为这是一个动态 API 流而非静态文件
-    const musicUrl = `/static/music/${fileName}?t=${new Date().getTime()}`;
+    // 1️⃣ 彻底停止当前音频
+    audio.pause();
+    audio.currentTime = 0;
+
+    // 2️⃣ 设置新音源
+    const musicUrl = `/static/music/${fileName}?t=${Date.now()}`;
     audio.src = encodeURI(musicUrl);
 
-    document.getElementById('song-title').innerText = fileName.replace('.aac', '');
+    // 3️⃣ 强制播放（保证切歌即播放）
+    audio.play().catch(() => {});
 
-    document.querySelectorAll('.music-item').forEach(item => item.classList.remove('active-song'));
+    // 4️⃣ 同步 UI（只在一个地方做）
+    document.getElementById('song-title').innerText = removeExt(fileName);
+
+    document.querySelectorAll('.music-item')
+        .forEach(item => item.classList.remove('active-song'));
+
     const currentItem = document.getElementById(`music-${index}`);
     if (currentItem) currentItem.classList.add('active-song');
 
-    // 2. 预加载元数据，确保时长能被读取
-    audio.load();
-
-    // 3. 异步播放处理
-    audio.play().then(() => {
-        musicPanel.classList.add('playing');
-        document.getElementById('play-pause').innerText = "⏸";
-    }).catch(e => {
-        console.warn("自动播放受限或被拦截:", e);
-        // 如果还是被拦截，尝试静音播放再取消静音（浏览器的安全策略）
-        audio.muted = true;
-        audio.play().then(() => {
-            setTimeout(() => { audio.muted = false; }, 100);
-        });
-    });
+    syncPlayUI(true);
 }
 
-function togglePlay() {
+// 唯一 UI 同步函数
+function syncPlayUI(isPlaying) {
     const btn = document.getElementById('play-pause');
-    if (audio.paused) {
-        if (!audio.src || audio.src.includes('undefined')) {
-            playMusic(0);
-        } else {
-            audio.play();
-            musicPanel.classList.add('playing');
-            btn.innerText = "⏸";
-        }
+
+    if (isPlaying) {
+        musicPanel.classList.add('playing');
+        btn.innerText = "⏸";
     } else {
-        audio.pause();
         musicPanel.classList.remove('playing');
         btn.innerText = "▶";
     }
 }
+
+
+
+function togglePlay() {
+    if (!audio.src) {
+        playMusic(0);
+        return;
+    }
+
+    if (audio.paused) {
+        audio.play();
+        syncPlayUI(true);
+    } else {
+        audio.pause();
+        syncPlayUI(false);
+    }
+}
+
+audio.onplay = () => syncPlayUI(true);
+audio.onpause = () => syncPlayUI(false);
+
 
 // --- 4. 进度条与时间更新核心逻辑 ---
 

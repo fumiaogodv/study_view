@@ -16,9 +16,12 @@ db = SQLAlchemy(app)
 # --- 数据库模型 ---
 class StudyRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.String(10), nullable=False, index=True)  # 格式: YYYY-MM-DD
+    date = db.Column(db.String(10), nullable=False, index=True)
     task_name = db.Column(db.String(100), nullable=False)
-    duration = db.Column(db.Integer)
+
+    # 🔥 核心修改：用秒
+    duration_sec = db.Column(db.Integer, nullable=False, default=0)
+
     note = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
 
@@ -27,9 +30,10 @@ class StudyRecord(db.Model):
             "id": self.id,
             "date": self.date,
             "task_name": self.task_name,
-            "duration": self.duration,
+            "duration_sec": self.duration_sec,
             "note": self.note
         }
+
 
 
 # 初始化数据库
@@ -49,23 +53,29 @@ def index():
 def save_record():
     data = request.json
     try:
-        # 核心改进：显式处理日期，确保存入数据库的格式统一
-        record_date = data.get('date')
-        if not record_date:
-            record_date = datetime.now().strftime('%Y-%m-%d')
+        record_date = data.get('date') or datetime.now().strftime('%Y-%m-%d')
+
+        duration_sec = int(data.get('duration_sec', 0))
 
         new_record = StudyRecord(
             date=record_date,
             task_name=data.get('task_name', '未命名任务'),
-            duration=data.get('duration', 0),
+            duration_sec=duration_sec,   # 🔥 秒
             note=data.get('note', '')
         )
+
         db.session.add(new_record)
         db.session.commit()
-        return jsonify({"status": "success", "id": new_record.id}), 201
+
+        return jsonify({
+            "status": "success",
+            "id": new_record.id
+        }), 201
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 400
+
 
 
 # 2. 删除记录 (新增：方便清理 0 分钟数据)
@@ -100,22 +110,26 @@ def get_records_by_date(date):
 @app.route('/api/music_list', methods=['GET'])
 def get_music_list():
     music_dir = os.path.join(app.static_folder, 'music')
-    # 过滤出所有 .aac 后缀的文件
-    files = [f for f in os.listdir(music_dir) if f.endswith('.aac')]
+    # 过滤出所有 .mp3 文件
+    files = [f for f in os.listdir(music_dir) if f.endswith('.mp3')]
     return jsonify(files)
 
-# 建议使用这个路由来获取音乐文件，以确保正确的响应头
+# 通过这个路由提供音乐文件，确保响应头正确
 @app.route('/static/music/<path:filename>')
 def serve_music(filename):
-    # 使用 absolute 路径防止定位错误
     music_dir = os.path.join(app.static_folder, 'music')
-    response = make_response(send_from_directory(music_dir, filename))
 
-    # 1. 核心修复：强制设置为音频流
-    response.headers['Content-Type'] = 'audio/aac'
-    # 2. 核心修复：告诉浏览器这个文件应该“内联”显示，不要当成下载任务
+    response = make_response(
+        send_from_directory(music_dir, filename)
+    )
+
+    # 1️⃣ 正确的 mp3 MIME 类型
+    response.headers['Content-Type'] = 'audio/mpeg'
+
+    # 2️⃣ 内联播放（浏览器 audio 标签能直接播）
     response.headers['Content-Disposition'] = 'inline'
-    # 3. 允许断点续传，这对进度条获取时长非常重要
+
+    # 3️⃣ 允许 Range 请求（进度条 / 拖动 / 获取时长 必须）
     response.headers['Accept-Ranges'] = 'bytes'
 
     return response

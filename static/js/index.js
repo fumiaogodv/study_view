@@ -3,7 +3,7 @@ let secondsElapsed = 0;
 let isRunning = false;
 let recordedDates = []; // 存储有记录的日期
 let isTimerSave = false;
-
+let playMode = 'sequence';
 
 function getToday() {
     return new Date().toLocaleDateString('en-CA');
@@ -177,12 +177,47 @@ let currentMusicIndex = 0;
 const audio = document.getElementById('main-audio');
 const musicPanel = document.getElementById('music-panel');
 
+const volumeSlider = document.getElementById('volume-slider');
+const muteBtn = document.getElementById('mute-btn');
+
 // 1. 初始化获取歌单
 async function initMusic() {
     try {
         const resp = await fetch('/api/music_list');
         musicFiles = await resp.json();
         renderMusicList();
+
+        // --- 在这里初始化音量逻辑 ---
+        const volumeSlider = document.getElementById('volume-slider');
+        const muteBtn = document.getElementById('mute-btn');
+
+        if (volumeSlider && muteBtn) {
+            // 设置初始音量（0.8 比较柔和）
+            audio.volume = 0.8;
+            volumeSlider.value = 0.8;
+
+            volumeSlider.oninput = (e) => {
+                const val = e.target.value;
+                audio.volume = val;
+                if (val == 0) muteBtn.innerText = "🔇";
+                else if (val < 0.5) muteBtn.innerText = "🔉";
+                else muteBtn.innerText = "🔊";
+            };
+
+            muteBtn.onclick = () => {
+                if (audio.volume > 0) {
+                    audio.dataset.lastVolume = audio.volume;
+                    audio.volume = 0;
+                    volumeSlider.value = 0;
+                    muteBtn.innerText = "🔇";
+                } else {
+                    const lastVol = parseFloat(audio.dataset.lastVolume || 0.8);
+                    audio.volume = lastVol;
+                    volumeSlider.value = lastVol;
+                    muteBtn.innerText = lastVol < 0.5 ? "🔉" : "🔊";
+                }
+            };
+        }
     } catch (e) {
         console.error("加载歌单失败:", e);
     }
@@ -238,6 +273,7 @@ function playMusic(index) {
 // 唯一 UI 同步函数
 function syncPlayUI(isPlaying) {
     const btn = document.getElementById('play-pause');
+    const musicPanel = document.getElementById('music-panel');
 
     if (isPlaying) {
         musicPanel.classList.add('playing');
@@ -302,8 +338,22 @@ function formatTime(sec) {
 }
 
 // 切歌逻辑
+// 2. 修改切歌逻辑 (核心修改点)
 function nextMusic() {
-    currentMusicIndex = (currentMusicIndex + 1) % musicFiles.length;
+    if (musicFiles.length === 0) return;
+
+    if (playMode === 'random') {
+        // 随机逻辑：生成一个不等于当前索引的随机数
+        let newIndex;
+        do {
+            newIndex = Math.floor(Math.random() * musicFiles.length);
+        } while (newIndex === currentMusicIndex && musicFiles.length > 1);
+        currentMusicIndex = newIndex;
+    } else {
+        // 顺序逻辑
+        currentMusicIndex = (currentMusicIndex + 1) % musicFiles.length;
+    }
+
     playMusic(currentMusicIndex);
 }
 
@@ -320,3 +370,95 @@ window.onload = () => {
     if (typeof updateCalendarData === 'function') updateCalendarData();
     if (typeof loadRecords === 'function') loadRecords();
 };
+
+// 1. 切换模式的函数
+function togglePlayMode() {
+    const modeBtn = document.getElementById('play-mode-btn');
+    if (playMode === 'sequence') {
+        playMode = 'random';
+        modeBtn.innerText = "🔀"; // 随机图标
+        modeBtn.title = "随机播放";
+    } else {
+        playMode = 'sequence';
+        modeBtn.innerText = "🔁"; // 顺序图标
+        modeBtn.title = "顺序播放";
+    }
+}
+
+// 加载文件列表
+async function loadAdminFiles() {
+    const type = document.getElementById('file-type-select').value;
+
+    // 添加加载中的视觉反馈（可选）
+    const list = document.getElementById('admin-file-list');
+    list.innerHTML = '<tr><td colspan="2" style="text-align:center;opacity:0.5;">读取中...</td></tr>';
+
+    try {
+        const resp = await fetch(`/api/files/${type}`);
+        if (!resp.ok) throw new Error('网络请求失败');
+        const files = await resp.json();
+
+        if (files.length === 0) {
+            list.innerHTML = '<tr><td colspan="2" style="text-align:center;opacity:0.5;">文件夹空空如也</td></tr>';
+            return;
+        }
+
+        // 使用类名 action-group 和 btn-delete 匹配我们刚才写的 CSS
+        list.innerHTML = files.map(file => `
+            <tr>
+                <td class="file-name-cell">${file}</td>
+                <td class="action-group">
+                    <button onclick="renameFile('${type}', '${file}')">更名</button>
+                    <button class="btn-delete" onclick="deleteFile('${type}', '${file}')">删除</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error("加载文件列表出错:", error);
+        list.innerHTML = '<tr><td colspan="2" style="text-align:center;color:#ff6b6b;">加载失败，请检查登录状态</td></tr>';
+    }
+}
+
+// 上传文件
+async function handleUpload() {
+    const type = document.getElementById('file-type-select').value;
+    const input = document.getElementById('file-upload-input');
+    if (!input.files[0]) return alert("请选择文件");
+
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+
+    const resp = await fetch(`/api/upload/${type}`, { method: 'POST', body: formData });
+    if (resp.ok) {
+        alert("上传成功");
+        loadAdminFiles();
+        if(type === 'music') initMusic(); // 刷新播放列表
+    }
+}
+
+// 删除文件
+async function deleteFile(type, filename) {
+    if (!confirm(`确定删除 ${filename} 吗？`)) return;
+    const resp = await fetch(`/api/file/${type}/${filename}`, { method: 'DELETE' });
+    if (resp.ok) {
+        loadAdminFiles();
+        if(type === 'music') initMusic();
+    }
+}
+
+// 重命名文件
+async function renameFile(type, oldName) {
+    const newName = prompt("请输入新文件名（带后缀）:", oldName);
+    if (!newName || newName === oldName) return;
+
+    const resp = await fetch(`/api/rename/${type}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldName, newName })
+    });
+    if (resp.ok) {
+        loadAdminFiles();
+        if(type === 'music') initMusic();
+    }
+}
+

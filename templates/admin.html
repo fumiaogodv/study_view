@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台管理</title>
+    <link rel="stylesheet" href="/static/css/index.css">
+</head>
+<body>
+    <div id="bg-container">
+        <video id="bg-video" autoplay muted loop>
+            <source src="/static/videos/nature.mp4" type="video/mp4">
+        </video>
+    </div>
+
+    <div class="admin-wrapper">
+        <div class="glass-panel admin-container">
+            <div class="admin-header">
+                <h2>📁 资源管理中心</h2>
+                <button class="close-btn" onclick="location.href='/'">返回主页</button>
+            </div>
+
+            <div class="admin-controls">
+                <div class="custom-select-wrapper">
+                    <select id="file-type-select" onchange="loadAdminFiles()">
+                        <option value="music">🎵 音乐库</option>
+                        <option value="videos">🎬 视频库</option>
+                        <option value="cover">🖼️ 封面库</option>
+                    </select>
+                </div>
+
+                <label for="file-upload-input" class="custom-file-upload">
+                    <span id="file-name-display">选择文件</span>
+                    <input type="file" id="file-upload-input" onchange="document.getElementById('file-name-display').innerText = this.files[0].name">
+                </label>
+
+                <button class="upload-btn" onclick="handleUpload()">✨ 开始上传</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table id="admin-file-table">
+                    <thead>
+                        <tr>
+                            <th>文件名</th>
+                            <th style="width: 150px; text-align: right;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-file-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/index.js"></script>
+    <script>
+        window.onload = () => {
+            if(typeof loadAdminFiles === 'function') loadAdminFiles();
+        };
+    </script>
+</body>
+</html>

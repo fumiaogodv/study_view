@@ -1,10 +1,18 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify,session,redirect
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from flask import send_from_directory, make_response
+from werkzeug.utils import secure_filename
 import os
+from functools import wraps
 
 app = Flask(__name__)
+
+app.secret_key = 'your_secret_key_here' # 必须设置，用于加密session
+
+# 设置你的管理员账号密码
+ADMIN_USER = "admin"
+ADMIN_PASS = "123456" # 建议正式使用时修改
 
 # 数据库配置
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///study_data.db'
@@ -43,9 +51,16 @@ with app.app_context():
 
 # --- 路由逻辑 ---
 
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
+# 正确写法
+@app.route('/admin')
+def admin_login_page():
+    return render_template('login.html')
 
 
 # 1. 保存记录 (优化：强制使用 YYYY-MM-DD 字符串)
@@ -133,6 +148,83 @@ def serve_music(filename):
     response.headers['Accept-Ranges'] = 'bytes'
 
     return response
+
+# 配置路径
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STORAGE = {
+    'music': os.path.join(BASE_DIR, 'static/music'),
+    'videos': os.path.join(BASE_DIR, 'static/videos'),
+    'cover': os.path.join(BASE_DIR, 'static/cover')  # ✅ 新增这一行
+}
+
+# 确保目录存在
+for path in STORAGE.values():
+    os.makedirs(path, exist_ok=True)
+
+# --- API 接口 ---
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('logged_in'):
+            return jsonify({"msg": "未授权"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+# 1. 获取文件列表
+@app.route('/api/files/<type>', methods=['GET'])
+@login_required
+def list_files(type):
+    if type not in STORAGE: return jsonify([]), 400
+    files = os.listdir(STORAGE[type])
+    return jsonify(files)
+
+# 2. 上传文件
+@app.route('/api/upload/<type>', methods=['POST'])
+@login_required
+def upload_file(type):
+    if 'file' not in request.files: return "无文件", 400
+    file = request.files['file']
+    filename = secure_filename(file.filename)
+    file.save(os.path.join(STORAGE[type], filename))
+    return jsonify({"msg": "上传成功"})
+
+# 3. 删除文件
+@app.route('/api/file/<type>/<filename>', methods=['DELETE'])
+@login_required
+def delete_file(type, filename):
+    try:
+        os.remove(os.path.join(STORAGE[type], filename))
+        return jsonify({"msg": "已删除"})
+    except Exception as e:
+        return str(e), 500
+
+# 4. 重命名文件
+@app.route('/api/rename/<type>', methods=['POST'])
+@login_required
+def rename_file(type):
+    data = request.json
+    old_path = os.path.join(STORAGE[type], data['oldName'])
+    new_path = os.path.join(STORAGE[type], data['newName'])
+    os.rename(old_path, new_path)
+    return jsonify({"msg": "更名成功"})
+
+# 1. 登录验证接口（登录页面的 JS 会调用这个）
+@app.route('/api/login', methods=['POST'])
+def admin_login():
+    data = request.json
+    if data.get('username') == ADMIN_USER and data.get('password') == ADMIN_PASS:
+        session['logged_in'] = True
+        return jsonify({"success": True})
+    return jsonify({"success": False, "msg": "账号或密码错误"}), 401
+
+# 2. 管理面板主页（登录成功后跳转的地方）
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    # 这里检查 session
+    if not session.get('logged_in'):
+        return redirect('/admin') # 没登录就踢回登录页
+    return render_template('admin.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

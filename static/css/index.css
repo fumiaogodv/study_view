@@ -325,17 +325,6 @@ button.action-btn { background: var(--accent); font-weight: bold; cursor: pointe
     to { transform: rotate(360deg); }
 }
 
-.album-cover {
-    width: 65px;
-    height: 65px;
-    border-radius: 50%; /* 圆形 */
-    object-fit: cover;
-    box-shadow: 0 0 15px rgba(0,0,0,0.5);
-    border: 2px solid rgba(255,255,255,0.2);
-    /* 默认不旋转 */
-    animation: rotateAlbum 5s linear infinite;
-    animation-play-state: paused;
-}
 
 /* 播放时启动旋转 */
 .playing .album-cover {
@@ -362,4 +351,310 @@ button.action-btn { background: var(--accent); font-weight: bold; cursor: pointe
 @keyframes rotateAlbum {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+}
+
+/* 音量组合容器 */
+.volume-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 20px;
+    transition: background 0.3s ease;
+}
+
+/* 鼠标悬停在按钮组时，给个淡淡的背景色增强一体感 */
+.volume-group:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+#mute-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    transition: transform 0.2s ease;
+}
+
+#mute-btn:hover {
+    transform: scale(1.1);
+}
+
+/* 容器动画优化 */
+.volume-slider-container {
+    width: 0;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    opacity: 0;
+}
+
+.volume-group:hover .volume-slider-container {
+    width: 100px; /* 稍微宽一点更好操作 */
+    margin-left: 10px;
+    opacity: 1;
+}
+
+/* 核心滑道样式 */
+#volume-slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2); /* 极其透明的白色 */
+    border-radius: 10px;
+    outline: none;
+    cursor: pointer;
+}
+
+/* 进度条左侧的填充感 (在 Webkit 中模拟) */
+#volume-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 10px;
+}
+
+/* 滑块（小圆点）样式 */
+#volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #ffffff;
+    border-radius: 50%;
+    cursor: pointer;
+    margin-top: -5px; /* 让圆点居中对齐轨道 */
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5); /* 白色呼吸灯效果 */
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    transition: all 0.2s ease;
+}
+
+#volume-slider::-webkit-slider-thumb:hover {
+    background: #ffffff;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+    transform: scale(1.2);
+}
+
+/* 兼容 Firefox */
+#volume-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: #ffffff;
+    border: none;
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+/* 播放模式按钮样式 */
+#play-mode-btn {
+    font-size: 1.1em;
+    opacity: 0.8;
+    transition: all 0.2s;
+}
+
+#play-mode-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* 当处于随机模式时，可以给个高亮颜色（可选） */
+#play-mode-btn.active-random {
+    color: #4CAF50; /* 这里的颜色可以根据你背景调整 */
+}
+
+/* 后台容器：满屏居中且带有背景模糊 */
+.admin-container {
+    width: 90%;
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 30px;
+    min-height: 80vh;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.admin-header h2 {
+    color: white;
+    font-weight: 300;
+    letter-spacing: 1px;
+}
+
+/* 控制栏布局 */
+.admin-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+}
+
+/* 统一按钮与输入框风格 */
+#file-type-select, .upload-btn, .custom-file-upload, .close-btn {
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+}
+
+.upload-btn { background: #4CAF50; border: none; }
+.upload-btn:hover { background: #45a049; transform: translateY(-2px); }
+
+/* 隐藏原始文件选择器，使用自定义按钮 */
+#file-upload-input { display: none; }
+.custom-file-upload:hover { background: rgba(255, 255, 255, 0.3); }
+
+/* 表格美化 */
+.table-wrapper {
+    max-height: 500px;
+    overflow-y: auto;
+    border-radius: 8px;
+}
+
+#admin-file-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+
+#admin-file-table th {
+    text-align: left;
+    padding: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85em;
+    text-transform: uppercase;
+}
+
+#admin-file-table td {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 15px;
+    color: white;
+}
+
+/* 表格圆角处理 */
+#admin-file-table td:first-child { border-radius: 8px 0 0 8px; }
+#admin-file-table td:last-child { border-radius: 0 8px 8px 0; }
+
+/* 操作按钮 */
+.action-group button {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 5px 12px;
+    border-radius: 4px;
+    margin-left: 5px;
+    font-size: 0.8em;
+}
+
+.btn-delete { color: #ff6b6b !important; border-color: rgba(255, 107, 107, 0.3) !important; }
+.btn-delete:hover { background: #ff6b6b; color: white !important; }
+
+.file-name-cell {
+    max-width: 400px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* 文件名超长时显示省略号 */
+}
+
+/* 确保背景视频铺满全屏 */
+#bg-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: -1;
+    overflow: hidden;
+}
+
+#bg-video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+}
+
+/* 居中包装器 */
+.admin-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh; /* 撑满屏幕高度 */
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* 调整面板样式：移除 fixed，改用 relative 配合 wrapper */
+.admin-container {
+    position: relative; /* 核心修改：不再使用 fixed */
+    width: 100%;
+    max-width: 900px;
+    margin: 0; /* 居中交给 wrapper */
+    padding: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(15px); /* 毛玻璃核心 */
+    -webkit-backdrop-filter: blur(15px);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* 响应式调整：文件列表滚动条美化 */
+.table-wrapper::-webkit-scrollbar {
+    width: 6px;
+}
+.table-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+
+#file-type-select, .upload-btn, .custom-file-upload, .close-btn {
+    /* 将背景改为较深的半透明黑色，增强对比度 */
+    background: rgba(0, 0, 0, 0.6);
+
+    /* 边框稍微亮一点，增加精致感 */
+    border: 1px solid rgba(255, 255, 255, 0.3);
+
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+
+    /* 增加一个细微的阴影，让按钮在视频背景上更有立体感 */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    outline: none;
+}
+
+/* 针对 select 元素的特殊处理，确保下拉选项也是深色的 */
+#file-type-select option {
+    background-color: #222; /* 纯深色背景，防止在某些浏览器下透出白色 */
+    color: white;
+}
+
+/* 鼠标悬停时的效果：稍微调亮一点 */
+#file-type-select:hover, .custom-file-upload:hover, .close-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* 保持上传按钮的绿色，但也要加深一点以保持风格统一 */
+.upload-btn {
+    background: rgba(76, 175, 80, 0.8) !important;
+    border: none !important;
+}
+
+.upload-btn:hover {
+    background: rgba(76, 175, 80, 1) !important;
+    transform: translateY(-2px);
 }

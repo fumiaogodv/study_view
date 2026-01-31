@@ -50,7 +50,7 @@
 <div class="glass-panel music-section" id="music-panel">
     <div class="player-container">
         <div class="current-info">
-            <img src="/static/music/img.png" class="album-cover" id="music-cover">
+            <img src="static/cover/default.png" class="album-cover" id="music-cover">
             <div class="song-details">
                 <h4 id="song-title">等待播放...</h4>
                 <p id="song-artist">本地音乐</p>
@@ -66,20 +66,27 @@
         </div>
 
         <div class="player-controls">
-            <button onclick="prevMusic()">⏮</button>
-            <button onclick="togglePlay()" id="play-pause">▶</button>
-            <button onclick="nextMusic()">⏭</button>
+    <button onclick="togglePlayMode()" id="play-mode-btn" title="顺序播放">🔁</button>
+    <button onclick="prevMusic()">⏮</button>
+    <button onclick="togglePlay()" id="play-pause">▶</button>
+    <button onclick="nextMusic()">⏭</button>
+
+    <div class="volume-group">
+        <button id="mute-btn" style="font-size: 1.2em;">🔊</button>
+        <div class="volume-slider-container">
+            <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="0.8">
         </div>
+    </div>
+</div>
+
+        <div class="player-controls">
+            </div>
 
         <div class="music-list record-container">
-            <div class="music-item" onclick="playSpecific(0)">1. DJ Okawari - Luv Letter</div>
-            <div class="music-item" onclick="playSpecific(1)">2. 和田薫 - 穿越时空的思念</div>
-            <div class="music-item" onclick="playSpecific(2)">3. 风居住的街道</div>
-            <div class="music-item" onclick="playSpecific(3)">4. 折戸伸治 - 潮鸣</div>
-            <div class="music-item" onclick="playSpecific(4)">5. Always With Me</div>
-            <div class="music-item" onclick="playSpecific(5)">6. 宗次郎 - 故乡的原风景</div>
-            <div class="music-item" onclick="playSpecific(6)">7. 久石让 - Summer</div>
-        </div>
+            </div>
+    </div>
+</div>
+
     </div>
 </div>
 

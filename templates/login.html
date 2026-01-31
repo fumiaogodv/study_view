@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>后台管理登录</title>
+    <link rel="stylesheet" href="/static/css/index.css"> <style>
+        .login-card {
+            width: 350px;
+            padding: 40px;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="bg-container">
+        <video id="bg-video" autoplay muted loop><source src="/static/videos/nature.mp4" type="video/mp4"></video>
+    </div>
+
+    <div class="glass-panel login-card">
+        <h2>管理员登录</h2>
+        <input type="text" id="username" placeholder="账号">
+        <input type="password" id="password" placeholder="密码">
+        <button onclick="doLogin()">进入管理系统</button>
+        <p id="msg" style="color: #ff4d4d; font-size: 0.8em; margin-top: 10px;"></p>
+    </div>
+
+    <script>
+        async function doLogin() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const msg = document.getElementById('msg');
+
+            const resp = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: user, password: pass})
+            });
+
+            if (resp.ok) {
+                window.location.href = '/admin/dashboard';
+            } else {
+                msg.innerText = "认证失败，请检查账号密码";
+            }
+        }
+    </script>
+</body>
+</html>

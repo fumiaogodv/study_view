@@ -8,11 +8,9 @@ from functools import wraps
 
 app = Flask(__name__)
 
-app.secret_key = 'your_secret_key_here' # 必须设置，用于加密session
-
-# 设置你的管理员账号密码
-ADMIN_USER = "admin"
-ADMIN_PASS = "123456" # 建议正式使用时修改
+ADMIN_USER = os.environ.get('STUDY_ADMIN_USER', 'admin')
+ADMIN_PASS = os.environ.get('STUDY_ADMIN_PASS', '123456')
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'default_secret_key_123')
 
 # 数据库配置
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///study_data.db'
@@ -149,6 +147,34 @@ def serve_music(filename):
 
     return response
 
+
+# --- 专门为首页提供的公开接口 ---
+
+# 1. 获取视频列表 (公开)
+@app.route('/api/public/videos', methods=['GET'])
+def get_public_videos():
+    video_dir = STORAGE['videos']
+    # 过滤出常见的视频格式
+    files = [f for f in os.listdir(video_dir) if f.lower().endswith(('.mp4', '.webm'))]
+    return jsonify(files)
+
+
+# 2. 视频文件流式传输 (公开)
+@app.route('/static/videos/<path:filename>')
+def serve_video(filename):
+    video_dir = STORAGE['videos']
+    response = make_response(send_from_directory(video_dir, filename))
+
+    # 设置视频对应的 MIME 类型
+    if filename.endswith('.mp4'):
+        response.headers['Content-Type'] = 'video/mp4'
+    elif filename.endswith('.webm'):
+        response.headers['Content-Type'] = 'video/webm'
+
+    response.headers['Content-Disposition'] = 'inline'
+    response.headers['Accept-Ranges'] = 'bytes'  # 必须，否则无法拖动进度条
+    return response
+
 # 配置路径
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STORAGE = {
@@ -213,6 +239,7 @@ def rename_file(type):
 @app.route('/api/login', methods=['POST'])
 def admin_login():
     data = request.json
+    # 这里的变量已经是环境变量注入后的值了
     if data.get('username') == ADMIN_USER and data.get('password') == ADMIN_PASS:
         session['logged_in'] = True
         return jsonify({"success": True})

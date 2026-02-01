@@ -26,11 +26,13 @@
     <h3 style="margin-top:0">学习历史</h3>
     <input type="text" id="calendarPicker"> </div>
 
-    <div id="bg-container">
-        <video id="bg-video" autoplay muted loop>
-            <source src="/static/videos/nature.mp4" type="video/mp4">
-        </video>
-    </div>
+   <div id="bg-container">
+    <video id="bg-video" autoplay muted loop playsinline>
+        <source id="video-source" src="/static/videos/nature.mp4" type="video/mp4">
+    </video>
+</div>
+
+<button class="toggle-btn" id="btn-next-bg" onclick="nextBackground()" style="bottom: 20px; left: 20px;" title="切换背景">🖼️</button>
 
     <button class="toggle-btn" id="btn-timer-toggle" onclick="togglePanel('timer-panel')">⏱️</button>
     <button class="toggle-btn" id="btn-task-toggle" onclick="togglePanel('task-panel')">📝</button>
@@ -100,5 +102,10 @@
     </div>
 
     <script src="/static/js/index.js"></script>
+
+<button class="toggle-btn" id="btn-fullscreen" onclick="toggleFullScreen()" style="top: 20px; right: 80px;" title="全屏模式">
+    ⛶
+</button>
+
 </body>
 </html>

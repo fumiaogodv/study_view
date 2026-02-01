@@ -15,5 +15,7 @@ services:
 
     environment:
       - FLASK_ENV=development
-
+      - STUDY_ADMIN_USER=my_custom_admin
+      - STUDY_ADMIN_PASS=secret_password_2024
+      - FLASK_SECRET_KEY=anything_unique_string
     restart: unless-stopped

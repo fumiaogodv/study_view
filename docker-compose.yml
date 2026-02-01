@@ -17,9 +17,14 @@ services:
 
     volumes:
       - ./instance:/app/instance # 只挂载数据库，保证学习记录不丢
+      - ./static/music:/app/static/music
+      - ./static/videos:/app/static/videos
 
     environment:
       # 核心：生产环境模式
       - FLASK_ENV=production
+      - STUDY_ADMIN_USER=admin
+      - STUDY_ADMIN_PASS=admin
+      - FLASK_SECRET_KEY=anything_unique_string
 
     restart: unless-stopped

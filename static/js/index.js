@@ -5,19 +5,20 @@ let recordedDates = []; // 存储有记录的日期
 let isTimerSave = false;
 let playMode = 'sequence';
 
+// 一 计时器与核心逻辑 (Timer & Core Logic)
+
+//获取本地当前日期（格式：YYYY-MM-DD），用于存储和比对。
 function getToday() {
     return new Date().toLocaleDateString('en-CA');
 }
 
-
-
-// 1. 面板显示/隐藏
+// 切换指定面板（如任务、音乐等）的显示或隐藏状态。
 function togglePanel(panelId) {
     const panel = document.getElementById(panelId);
     panel.classList.toggle('active');
 }
 
-// 2. 计时器：开始 -> 结束并重置
+// 主计时按钮逻辑，处理开始计时与停止保存的循环。
 async function handleTimerClick() {
     const btn = document.getElementById('startBtn');
     const display = document.getElementById('display');
@@ -45,7 +46,7 @@ async function handleTimerClick() {
     }
 }
 
-
+// 计时器的递增逻辑，实时更新页面上的时间显示。
 function updateTimer() {
     secondsElapsed++;
     const mins = Math.floor(secondsElapsed / 60);
@@ -54,7 +55,9 @@ function updateTimer() {
         `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-// 3. 保存数据 (修复日期偏移)
+// 二 数据存储与管理 (Data Management)
+
+//收集任务名、备注、时长和日期，通过 API 发送到后端保存。
 async function saveStudyData() {
     const taskName = document.getElementById('taskName').value;
     const note = document.getElementById('note').value;
@@ -90,7 +93,7 @@ async function saveStudyData() {
 }
 
 
-// 4. 加载记录 (增加删除按钮)
+//  加载记录 (增加删除按钮) 根据指定日期从后端拉取学习记录，并渲染到列表中。
 async function loadRecords(selectedDate) {
     let date = selectedDate;
 
@@ -119,7 +122,7 @@ async function loadRecords(selectedDate) {
     `).join('') : '<div style="padding:20px;text-align:center;opacity:0.5;">该日暂无记录</div>';
 }
 
-// 5. 删除功能
+// 5. 删除功能 根据 ID 删除单条学习记录，并刷新当前视图。
 async function deleteItem(id, date) {
     if (!confirm("确定要删除这条记录吗？")) return;
     const response = await fetch(`/api/record/${id}`, { method: 'DELETE' });
@@ -129,13 +132,15 @@ async function deleteItem(id, date) {
     }
 }
 
-// 6. 日历渲染逻辑 (彻底修复时区)
+// 6. 日历渲染逻辑 (彻底修复时区)  从后端获取所有“有记录的日期”，用于在日历上标记小圆点。
 async function updateCalendarData() {
     const resp = await fetch('/api/recorded_dates');
     recordedDates = await resp.json();
     initCalendar(); // 重新初始化以刷新样式
 }
 
+// 三 日历与格式化 (UI & Calendar)
+//  将学习时长（秒）格式化为更易读的 Xm Ys 字符串。
 function formatDuration(sec) {
     if (sec < 60) return `${sec}s`;
 
@@ -145,7 +150,7 @@ function formatDuration(sec) {
     return s === 0 ? `${m}min` : `${m}m ${s}s`;
 }
 
-
+// 初始化 Flatpickr 日历控件，处理日期标记和点击切换逻辑。
 function initCalendar() {
     flatpickr("#calendarPicker", {
         inline: true,
@@ -166,6 +171,10 @@ function initCalendar() {
     });
 }
 
+function removeExt(filename) {
+    return filename.replace(/\.[^/.]+$/, '');
+}
+
 window.onload = () => {
     updateCalendarData();
     loadRecords();
@@ -180,7 +189,9 @@ const musicPanel = document.getElementById('music-panel');
 const volumeSlider = document.getElementById('volume-slider');
 const muteBtn = document.getElementById('mute-btn');
 
-// 1. 初始化获取歌单
+// 四 音乐播放器功能 (Music Player)
+
+// 1. 初始化获取歌单 初始化音乐列表，并绑定音量调节、静音等交互事件。
 async function initMusic() {
     try {
         const resp = await fetch('/api/music_list');
@@ -223,12 +234,10 @@ async function initMusic() {
     }
 }
 
-function removeExt(filename) {
-    return filename.replace(/\.[^/.]+$/, '');
-}
 
 
-// 2. 渲染歌单 (只展示文件名)
+
+// 2. 渲染歌单 (只展示文件名)  将获取到的音乐文件渲染到 UI 的播放列表中。
 function renderMusicList() {
     const list = document.querySelector('.music-list');
     if (!list) return;
@@ -242,7 +251,7 @@ function renderMusicList() {
 
 
 
-// 3. 播放逻辑优化
+// 3. 播放逻辑优化 加载并播放指定索引的音乐文件，处理音频源切换。
 function playMusic(index) {
     currentMusicIndex = index;
     const fileName = musicFiles[index];
@@ -270,7 +279,7 @@ function playMusic(index) {
     syncPlayUI(true);
 }
 
-// 唯一 UI 同步函数
+// 唯一 UI 同步函数  同步播放器 UI（如播放按钮图标、面板动画状态）。
 function syncPlayUI(isPlaying) {
     const btn = document.getElementById('play-pause');
     const musicPanel = document.getElementById('music-panel');
@@ -285,7 +294,7 @@ function syncPlayUI(isPlaying) {
 }
 
 
-
+// 控制音频的“播放/暂停”状态切换。
 function togglePlay() {
     if (!audio.src) {
         playMusic(0);
@@ -329,7 +338,7 @@ document.getElementById('progress').oninput = (e) => {
     }
 };
 
-// 时间格式化辅助函数
+// 时间格式化辅助函数  辅助函数，将秒数格式化为 00:00 格式。
 function formatTime(sec) {
     if (isNaN(sec)) return "00:00";
     const m = Math.floor(sec / 60);
@@ -338,7 +347,7 @@ function formatTime(sec) {
 }
 
 // 切歌逻辑
-// 2. 修改切歌逻辑 (核心修改点)
+// 2. 修改切歌逻辑 (核心修改点) 切歌逻辑，根据播放模式（顺序/随机）决定下一首
 function nextMusic() {
     if (musicFiles.length === 0) return;
 
@@ -357,6 +366,7 @@ function nextMusic() {
     playMusic(currentMusicIndex);
 }
 
+// 切换回上一首音乐。
 function prevMusic() {
     currentMusicIndex = (currentMusicIndex - 1 + musicFiles.length) % musicFiles.length;
     playMusic(currentMusicIndex);
@@ -371,7 +381,7 @@ window.onload = () => {
     if (typeof loadRecords === 'function') loadRecords();
 };
 
-// 1. 切换模式的函数
+// 1. 切换模式的函数 在“顺序播放”和“随机播放”模式之间切换。
 function togglePlayMode() {
     const modeBtn = document.getElementById('play-mode-btn');
     if (playMode === 'sequence') {
@@ -385,7 +395,8 @@ function togglePlayMode() {
     }
 }
 
-// 加载文件列表
+// 五 后台管理功能 (Admin Operations)
+// 加载文件列表 按类型（音乐/背景等）读取服务器上的文件列表并显示在管理表格中。
 async function loadAdminFiles() {
     const type = document.getElementById('file-type-select').value;
 
@@ -419,7 +430,7 @@ async function loadAdminFiles() {
     }
 }
 
-// 上传文件
+// 上传文件 处理文件上传逻辑，将本地选中的文件发送至服务器。
 async function handleUpload() {
     const type = document.getElementById('file-type-select').value;
     const input = document.getElementById('file-upload-input');
@@ -436,7 +447,7 @@ async function handleUpload() {
     }
 }
 
-// 删除文件
+// 删除文件 在管理后台删除特定的服务器文件。
 async function deleteFile(type, filename) {
     if (!confirm(`确定删除 ${filename} 吗？`)) return;
     const resp = await fetch(`/api/file/${type}/${filename}`, { method: 'DELETE' });
@@ -446,7 +457,7 @@ async function deleteFile(type, filename) {
     }
 }
 
-// 重命名文件
+// 重命名文件 弹出对话框并处理服务器文件的重命名操作。
 async function renameFile(type, oldName) {
     const newName = prompt("请输入新文件名（带后缀）:", oldName);
     if (!newName || newName === oldName) return;
@@ -462,3 +473,102 @@ async function renameFile(type, oldName) {
     }
 }
 
+// --- 背景视频逻辑 ---
+let publicVideoFiles = [];
+let currentVideoIndex = 0;
+
+/**
+ * initPublicVideos: 首页启动时获取公开视频列表
+ */
+async function initPublicVideos() {
+    try {
+        const resp = await fetch('/api/public/videos');
+        publicVideoFiles = await resp.json();
+        console.log("背景列表已加载:", publicVideoFiles);
+    } catch (e) {
+        console.error("加载背景视频列表失败:", e);
+    }
+}
+
+/**
+ * nextBackground: 切换下一个视频
+ */
+function nextBackground() {
+    if (publicVideoFiles.length === 0) return;
+
+    const video = document.getElementById('bg-video');
+    const source = document.getElementById('video-source');
+
+    // 1. 计算下一个视频索引
+    currentVideoIndex = (currentVideoIndex + 1) % publicVideoFiles.length;
+    const fileName = publicVideoFiles[currentVideoIndex];
+
+    // 2. 更新视频源
+    // 添加时间戳 t=${Date.now()} 可以防止某些浏览器缓存导致切换失败
+    const videoUrl = `/static/videos/${fileName}?t=${Date.now()}`;
+
+    // 3. 切换逻辑
+    video.pause();
+    source.src = videoUrl;
+    video.load(); // 必须调用 load() 来重新加载新资源
+    video.play().catch(err => console.log("播放被拦截:", err));
+}
+
+// --- 在页面加载时启动 ---
+// 找到你现有的 window.onload，确保它调用了初始化
+window.addEventListener('load', () => {
+    initPublicVideos(); // 获取公开视频列表
+});
+
+/**
+ * toggleFullScreen: 切换网页全屏状态
+ */
+function toggleFullScreen() {
+    if (!document.fullscreenElement &&    // 当前不在全屏
+        !document.mozFullScreenElement &&
+        !document.webkitFullscreenElement &&
+        !document.msFullscreenElement) {
+
+        // 进入全屏
+        const docElm = document.documentElement;
+        if (docElm.requestFullscreen) {
+            docElm.requestFullscreen();
+        } else if (docElm.mozRequestFullScreen) {
+            docElm.mozRequestFullScreen();
+        } else if (docElm.webkitRequestFullScreen) {
+            docElm.webkitRequestFullScreen();
+        } else if (docElm.msRequestFullscreen) {
+            docElm.msRequestFullscreen();
+        }
+
+        document.getElementById('btn-fullscreen').innerText = "❌"; // 切换图标
+    } else {
+        // 退出全屏
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+
+        document.getElementById('btn-fullscreen').innerText = "⛶";
+    }
+}
+
+// 监听全屏变化（处理用户按 ESC 退出全屏的情况）
+document.addEventListener('fullscreenchange', updateFullscreenBtn);
+document.addEventListener('webkitfullscreenchange', updateFullscreenBtn);
+document.addEventListener('mozfullscreenchange', updateFullscreenBtn);
+document.addEventListener('MSFullscreenChange', updateFullscreenBtn);
+
+function updateFullscreenBtn() {
+    const btn = document.getElementById('btn-fullscreen');
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+        btn.innerText = "❌";
+    } else {
+        btn.innerText = "⛶";
+    }
+}

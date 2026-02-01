@@ -658,3 +658,10 @@ button.action-btn { background: var(--accent); font-weight: bold; cursor: pointe
     background: rgba(76, 175, 80, 1) !important;
     transform: translateY(-2px);
 }
+/* 如果 index.css 里没写，可以在 head 里补一下 */
+#btn-next-bg {
+    z-index: 100; /* 确保在视频层之上 */
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}

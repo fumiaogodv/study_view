@@ -94,11 +94,23 @@
 <audio id="main-audio" src=""></audio>
 
 
-    <div class="glass-panel task-detail-section" id="task-panel">
-        <h3>📊 任务明细</h3>
-        <div id="recordList" class="record-container">
-            </div>
+<div class="glass-panel task-detail-section" id="task-panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;">
+        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+            <span>📊</span> 任务明细
+        </h3>
+
+        <button onclick="handleManualAdd()" class="add-btn-new">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        </button>
     </div>
+
+    <div id="recordList" class="record-container">
+        </div>
+</div>
 
     <script src="/static/js/index.js"></script>
 

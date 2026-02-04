@@ -58,39 +58,58 @@ function updateTimer() {
 // 二 数据存储与管理 (Data Management)
 
 //收集任务名、备注、时长和日期，通过 API 发送到后端保存。
+// 修改原有的 saveStudyData，提取出通用的 performSave
+// 修改原有的 saveStudyData，提取出通用的 performSave
 async function saveStudyData() {
-    const taskName = document.getElementById('taskName').value;
-    const note = document.getElementById('note').value;
-
     const durationSec = secondsElapsed;
-    const durationMin = Math.floor(durationSec / 60);
-
     if (durationSec < 60 && durationSec > 0) {
         if (!confirm("学习时间不到1分钟，确定要记录吗？")) return;
     }
 
+    const data = {
+        task_name: document.getElementById('taskName').value || "未命名任务",
+        duration_sec: durationSec,
+        note: document.getElementById('note').value
+    };
+
+    await performSave(data);
+}
+
+// 通用的保存执行函数
+async function performSave(customData) {
     const localDate = getToday();
     const selectedDate = document.getElementById('calendarPicker').value;
 
-    const data = {
-        task_name: taskName || "未命名任务",
-        duration_sec: durationSec,          // ✅ 秒
-        duration_min: durationMin,          // 兼容旧后端可留
-        note: note,
+    const finalData = {
+        task_name: customData.task_name,
+        duration_sec: customData.duration_sec,
+        duration_min: Math.floor(customData.duration_sec / 60),
+        note: customData.note,
+        // 如果是计时器停止触发，用当天；如果是手动补录，用日历选中的日期
         date: isTimerSave ? localDate : (selectedDate || localDate)
     };
 
-    const response = await fetch('/api/record', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
+    try {
+        const response = await fetch('/api/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(finalData)
+        });
 
-    if (response.ok) {
-        await updateCalendarData();
-        loadRecords(data.date);
+        if (response.ok) {
+            alert("记录已保存");
+            await updateCalendarData();
+            loadRecords(finalData.date);
+            // 清空输入框以便下次使用
+            document.getElementById('taskName').value = "";
+            document.getElementById('note').value = "";
+        }
+    } catch (error) {
+        console.error("保存失败:", error);
     }
 }
+
+
 
 
 //  加载记录 (增加删除按钮) 根据指定日期从后端拉取学习记录，并渲染到列表中。
@@ -137,6 +156,65 @@ async function updateCalendarData() {
     const resp = await fetch('/api/recorded_dates');
     recordedDates = await resp.json();
     initCalendar(); // 重新初始化以刷新样式
+}
+
+// 7. 手动添加记录逻辑
+// 手动添加记录逻辑 - 全自定义版
+async function handleManualAdd() {
+    // 1. 定义任务名称
+    const taskName = prompt("请输入任务名称:", "手动补录任务");
+    if (taskName === null) return; // 用户取消
+
+    // 2. 定义学习时长
+    const inputMin = prompt(`[${taskName}] 学习了多久？(请输入分钟数):`, "25");
+    if (inputMin === null) return;
+    const mins = parseInt(inputMin);
+    if (isNaN(mins) || mins <= 0) {
+        alert("请输入有效的时长数字");
+        return;
+    }
+
+    // 3. 定义备注
+    const note = prompt(`给 [${taskName}] 加点备注吧:`, "");
+    if (note === null) return; // 用户取消
+
+    // 4. 准备数据
+    isTimerSave = false; // 标记为手动，确保使用日历选中的日期
+    const manualData = {
+        task_name: taskName,
+        duration_sec: mins * 60,
+        note: note || "手动补录"
+    };
+
+    // 5. 执行保存
+    await performSave(manualData);
+}
+
+// 通用的保存执行函数 (保持不变)
+async function performSave(customData) {
+    const localDate = getToday();
+    const selectedDate = document.getElementById('calendarPicker').value;
+
+    const finalData = {
+        task_name: customData.task_name,
+        duration_sec: customData.duration_sec,
+        duration_min: Math.floor(customData.duration_sec / 60),
+        note: customData.note,
+        date: isTimerSave ? localDate : (selectedDate || localDate)
+    };
+
+    const response = await fetch('/api/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalData)
+    });
+
+    if (response.ok) {
+        await updateCalendarData();
+        loadRecords(finalData.date);
+    } else {
+        alert("保存失败，请检查网络");
+    }
 }
 
 // 三 日历与格式化 (UI & Calendar)

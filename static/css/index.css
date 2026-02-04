@@ -687,3 +687,28 @@ button.action-btn { background: var(--accent); font-weight: bold; cursor: pointe
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
+
+.add-btn-new {
+    background: transparent;      /* 背景透明 */
+    border: none;
+    color: #4CAF50;               /* 保持你的主题绿色 */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    transition: all 0.2s ease;    /* 增加过渡动画 */
+    border-radius: 8px;
+}
+
+/* 鼠标悬停时的效果：背景变亮并轻微缩放 */
+.add-btn-new:hover {
+    background: rgba(76, 175, 80, 0.1);
+    transform: scale(1.1);
+    color: #66bb6a;
+}
+
+/* 鼠标点击时的反馈 */
+.add-btn-new:active {
+    transform: scale(0.95);
+}

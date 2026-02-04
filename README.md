@@ -1,258 +1,111 @@
+
 ---
 
 # 📚 Study View
 
-**Study View** 是一个集 **学习计时 / 学习日历 / 本地音乐播放** 于一体的轻量级学习辅助 Web 应用，基于 **Flask** 开发，支持 **本地 Python 运行** 与 **Docker 一键部署**，适合个人长期使用与服务器部署。
+**Study View** 是一个集 **学习计时 / 手动记录 / 学习日历 / 本地音乐播放** 于一体的轻量级学习辅助 Web 应用。基于 **Flask** 开发，支持 **Docker** 一键部署，旨在为个人开发者与学生提供一个沉浸式、可高度定制的专注空间。
 
 ---
 
-## ✨ 功能一览
+## ✨ 核心功能
 
-### 🎧 本地音乐播放
+### 🎧 沉浸式音乐播放
 
-* 支持播放自定义音乐文件
-* 支持 **歌曲背景视频**
-* 支持 **播放器封面自定义**
-* 为学习提供沉浸式专注环境
+* **本地化资源**：支持播放自定义音频文件，摆脱平台版权限制。
+* **视觉同步**：支持 **歌曲背景视频** 与 **播放器封面** 自定义，营造专属学习氛围。
 
-### ⏱️ 学习计时
+### ⏱️ 智能学习管理
 
-* 记录学习开始与结束时间
-* 累计学习时长
-* 适合番茄钟 / 长时间专注场景
+* **实时计时**：一键开启专注模式，自动累计学习时长。
+* **手动记录 (New!)**：支持事后补录学习数据，确保学习日历的完整性，适合非电脑端的学习场景（如阅读纸质书）。
+* **可视化日历**：以日历形式直观展示每日学习成果，帮助你建立长期的学习习惯。
 
-### 📅 学习日历
+### 🔐 强大的管理员后台 (`/admin`)
 
-* 以日历形式展示学习记录
-* 快速回顾学习情况
-* 帮助建立持续学习习惯
-
-### 🔐 管理员后台
-
-* 独立管理员界面 `/admin`
-* 管理音乐展示资源
-* 支持：
-
-  * 歌曲背景视频 **新增 / 删除**
-  * 播放器封面 **新增 / 删除**
+* **资源热管理**：无需重启，直接在网页端新增或删除背景视频与封面。
+* **环境隔离**：支持通过环境变量灵活配置管理账号，确保数据安全。
 
 ---
 
-## 🚀 运行方式一：Python 本地运行（开发 / 个人使用）
+## 🚀 部署指南
 
-### 1️⃣ 获取项目代码
+### 方式一：Docker 部署 (推荐)
+
+适用于服务器长期运行，支持资源持久化。
+
+1. **拉取镜像**
+```bash
+docker pull 0424godv/study_view
+
+```
+
+
+2. **配置 `docker-compose.yml**`
+```yaml
+version: "3.9"
+services:
+  study_view:
+    image: 0424godv/study_view:latest
+    container_name: study-view-app
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./instance:/app/instance            # 数据库与学习记录
+      - ./static/music:/app/static/music    # 音乐库挂载
+      - ./static/videos:/app/static/videos  # 视频资源挂载
+    environment:
+      - FLASK_ENV=production
+      - STUDY_ADMIN_USER=your_admin         # 自定义管理员账号
+      - STUDY_ADMIN_PASS=your_password      # 自定义管理员密码
+      - FLASK_SECRET_KEY=yoursecretkey      # 安全密钥
+    restart: unless-stopped
+
+```
+
+
+3. **启动**：`docker compose up -d`
+
+---
+
+### 方式二：Python 本地运行
+
+适用于开发调试。
 
 ```bash
 git clone https://github.com/fumiaogodv/study_view.git
 cd study_view
-```
-
-### 2️⃣ 安装依赖
-
-请确保已安装 **Python 3.8+**：
-
-```bash
 pip install -r requirements.txt
-```
-
-### 3️⃣ 添加音乐文件
-
-将音乐文件放入：
-
-```text
-static/music/
-```
-
-支持常见音频格式（如 `.mp3`）。
-
-### 4️⃣ 启动应用
-
-```bash
 python app.py
-```
 
-访问：
-
-```text
-http://localhost:5000
 ```
 
 ---
 
-## 🐳 运行方式二：Docker 部署（推荐服务器 / 长期使用）
+## 📁 资源管理说明
 
-### 1️⃣ 拉取或构建镜像
-
-```bash
-docker pull 0424godv/study_view
-```
-
-或使用 `docker-compose` 本地构建。
-
----
-
-### 2️⃣ 创建 `docker-compose.yml`
-
-```yaml
-version: "3.9"
-
-services:
-  study_view:
-    # 使用本地 Dockerfile 构建
-    build: .
-
-    image: 0424godv/study_view:latest
-    container_name: view-prod
-
-    ports:
-      - "5000:5000"
-
-    volumes:
-      # 学习记录与配置持久化
-      - ./instance:/app/instance
-
-      # 音乐与视频资源热更新
-      - ./static/music:/app/static/music
-      - ./static/videos:/app/static/videos
-
-    environment:
-      # 生产环境
-      - FLASK_ENV=production
-
-      # 管理员账号（可自定义）
-      - STUDY_ADMIN_USER=admin
-      - STUDY_ADMIN_PASS=admin
-
-      # Flask 会话密钥（请修改为随机字符串）
-      - FLASK_SECRET_KEY=anything_unique_string
-
-    restart: unless-stopped
-```
-
-### 3️⃣ 启动服务
-
-```bash
-docker compose up -d
-```
-
-访问：
-
-```text
-http://localhost:5000
-```
-
----
-
-## 🔐 管理员后台说明
-
-### 后台地址
-
-```text
-http://<IP>:5000/admin
-```
-
----
-
-### 管理员账号来源
-
-#### Python 本地运行
-
-```text
-用户名：admin
-密码：123456
-```
-
-#### Docker 部署
-
-由环境变量控制：
-
-```yaml
-STUDY_ADMIN_USER=admin
-STUDY_ADMIN_PASS=admin
-```
-
-修改后重新启动容器即可生效。
-
----
-
-### 管理功能说明
-
-#### 🎵 歌曲背景视频
-
-* 支持新增 / 删除
-* 视频文件位于：
-
-```text
-static/videos/
-```
-
-#### 🖼️ 播放器封面
-
-* 支持新增 / 删除
-* ⚠️ **封面图片文件名必须为：**
-
-```text
-img.png
-```
-
-否则将无法正常显示。
-
----
-
-## 🎵 Docker 资源热更新机制（重要）
-
-Docker 版本通过 volume 挂载实现 **资源热更新**：
-
-### 🎧 音乐
-
-```text
-static/music/
-```
-
-* 新增 / 删除音乐后
-* **无需重启容器**
-* 刷新页面即可生效
-
-### 🎬 视频
-
-```text
-static/videos/
-```
-
-* 支持后台管理
-* 即时生效
-
-### 🗃️ 数据
-
-```text
-instance/
-```
-
-* 保存学习记录与配置
-* 升级镜像 / 重建容器 **不会丢失数据**
+| 资源类型 | 存放路径 | 说明 |
+| --- | --- | --- |
+| **音频文件** | `static/music/` | 支持 `.mp3`, `.wav` 等格式，刷新页面即可同步。 |
+| **视频背景** | `static/videos/` | 可通过管理员后台上传或删除。 |
+| **播放器封面** | `static/` | ⚠️ 文件名必须固定为 `img.png`。 |
+| **数据持久化** | `instance/` | 包含 SQLite 数据库，Docker 部署时务必挂载。 |
 
 ---
 
 ## 🛠️ 技术栈
 
-* Backend：Flask
-* Frontend：HTML / CSS / JavaScript
-* Deployment：Docker / Docker Compose
+* **后端**: Python (Flask)
+* **前端**: HTML5, CSS3 (响应式布局), JavaScript
+* **数据库**: SQLite
+* **容器化**: Docker / Docker Compose
 
 ---
 
-## 📌 适合人群
+## 📈 项目路线图
 
-* 希望建立 **长期专注学习环境** 的用户
-* 喜欢 **音乐 + 计时 + 轻量 UI** 的极简主义者
-* 想要 **低成本、自部署学习工具** 的个人用户
-
----
-
-## 📈 项目状态
-
-> 本项目仍在持续更新中，
-> 欢迎 Issue、建议与 PR。
+* [x] 移动端适配优化 (Responsive UI)
+* [x] 手动录入学习记录功能
+* [ ] 增加学习目标设定与倒计时提醒
+* [ ] 支持更多样式的日历视图
 
 ---
-

@@ -574,32 +574,28 @@ function updateFullscreenBtn() {
 }
 
 function updateOrientation() {
-    const container = document.documentElement; // 或者你的主容器 ID
-    const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight;
+    const isPortrait = window.innerHeight > window.innerWidth;
 
-    // 如果处于全屏状态
-    if (document.fullscreenElement) {
-        if (screenHeight > screenWidth) {
-            // 1. 竖屏状态下：强制旋转并适配
-            // 旋转 90 度，并确保宽度适配屏幕高度
-            const scale = screenHeight / screenWidth;
-            document.body.style.width = screenHeight + 'px';
-            document.body.style.height = screenWidth + 'px';
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (isPortrait) {
+            // 竖屏时旋转
+            document.body.style.width = '100vh';  // 宽度等于视口高度
+            document.body.style.height = '100vw'; // 高度等于视口宽度
             document.body.style.transform = `translate(-50%, -50%) rotate(90deg)`;
-            document.body.style.position = 'fixed';
-            document.body.style.top = '50%';
-            document.body.style.left = '50%';
+            // 关键：强制身体充满，防止缩放导致的缝隙
+            document.body.style.backgroundSize = 'cover';
         } else {
-            // 2. 横屏状态下：恢复正常显示
+            // 横屏时恢复
             document.body.style.width = '100vw';
             document.body.style.height = '100vh';
             document.body.style.transform = 'none';
-            document.body.style.position = 'static';
         }
+        document.body.style.position = 'fixed';
+        document.body.style.top = '50%';
+        document.body.style.left = '50%';
     } else {
-        // 退出全屏，重置所有样式
-        document.body.style = '';
+        // 重置
+        document.body.style.cssText = "";
     }
 }
 

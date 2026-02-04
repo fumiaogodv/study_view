@@ -5,6 +5,12 @@
     --text-color: #ffffff;
 }
 
+#your-main-container {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* 如果是图片或视频背景 */
+}
+
 body, html {
     margin: 0; padding: 0; height: 100%;
     font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;

@@ -281,6 +281,22 @@ button.action-btn { background: var(--accent); font-weight: bold; cursor: pointe
     padding-right: 5px;
     border-top: 1px solid rgba(255,255,255,0.1);
     padding-top: 10px;
+    max-height: 200px;    /* 设置一个你觉得合适的最大高度 */
+    overflow-x: hidden;   /* 隐藏水平滚动条 */
+}
+
+/* 自定义滚动条样式（让它更好看，符合你的 glass-panel 风格） */
+.music-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.music-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3); /* 半透明白色，适配毛玻璃 */
+    border-radius: 10px;
+}
+
+.music-list::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .music-item {

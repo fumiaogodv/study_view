@@ -572,3 +572,52 @@ function updateFullscreenBtn() {
         btn.innerText = "⛶";
     }
 }
+
+function updateOrientation() {
+    const container = document.documentElement; // 或者你的主容器 ID
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+
+    // 如果处于全屏状态
+    if (document.fullscreenElement) {
+        if (screenHeight > screenWidth) {
+            // 1. 竖屏状态下：强制旋转并适配
+            // 旋转 90 度，并确保宽度适配屏幕高度
+            const scale = screenHeight / screenWidth;
+            document.body.style.width = screenHeight + 'px';
+            document.body.style.height = screenWidth + 'px';
+            document.body.style.transform = `translate(-50%, -50%) rotate(90deg)`;
+            document.body.style.position = 'fixed';
+            document.body.style.top = '50%';
+            document.body.style.left = '50%';
+        } else {
+            // 2. 横屏状态下：恢复正常显示
+            document.body.style.width = '100vw';
+            document.body.style.height = '100vh';
+            document.body.style.transform = 'none';
+            document.body.style.position = 'static';
+        }
+    } else {
+        // 退出全屏，重置所有样式
+        document.body.style = '';
+    }
+}
+
+// 修改你的 toggleFullScreen 函数，加入逻辑
+async function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+        const docElm = document.documentElement;
+        try {
+            if (docElm.requestFullscreen) await docElm.requestFullscreen();
+            // 延时执行，等待全屏生效后计算长宽
+            setTimeout(updateOrientation, 100);
+        } catch (err) {
+            console.error(err);
+        }
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+    }
+}
+
+// 监听窗口大小变化（如旋转手机时）
+window.addEventListener('resize', updateOrientation);

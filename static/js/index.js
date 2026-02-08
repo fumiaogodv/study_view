@@ -5,6 +5,8 @@ let recordedDates = []; // 存储有记录的日期
 let isTimerSave = false;
 let playMode = 'sequence';
 
+let startTime; // 新增：记录开始的时间戳
+
 // 一 计时器与核心逻辑 (Timer & Core Logic)
 
 //获取本地当前日期（格式：YYYY-MM-DD），用于存储和比对。
@@ -24,14 +26,18 @@ async function handleTimerClick() {
     const display = document.getElementById('display');
 
     if (!isRunning) {
-        secondsElapsed = 0;
+        // 关键修改：记录点击开始时的确切时间戳（单位：毫秒）
+        startTime = Date.now();
+
         display.innerText = "00:00";
-        timer = setInterval(updateTimer, 1000);
+        timer = setInterval(updateTimer, 1000); // 这里的 1000ms 仅用于更新 UI 显示
+
         btn.innerText = "停止并保存";
         btn.style.background = "#f44336";
         isRunning = true;
-        isTimerSave = true;   // ✅ 标记：这是计时器保存
+        isTimerSave = true;
     } else {
+        // 停止逻辑保持不变...
         clearInterval(timer);
         isRunning = false;
         btn.innerText = "开始学习";
@@ -40,7 +46,6 @@ async function handleTimerClick() {
         await saveStudyData();
 
         document.getElementById('task-panel').classList.add('active');
-        secondsElapsed = 0;
         display.innerText = "00:00";
         isTimerSave = false;
     }
@@ -48,9 +53,16 @@ async function handleTimerClick() {
 
 // 计时器的递增逻辑，实时更新页面上的时间显示。
 function updateTimer() {
-    secondsElapsed++;
+    // 关键修改：计算当前时间与开始时间的差值
+    const currentTime = Date.now();
+    const diffMs = currentTime - startTime; // 毫秒差
+
+    // 将毫秒转为秒
+    secondsElapsed = Math.floor(diffMs / 1000);
+
     const mins = Math.floor(secondsElapsed / 60);
     const secs = secondsElapsed % 60;
+
     document.getElementById('display').innerText =
         `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }

@@ -1,4 +1,5 @@
 let timer;
+let taskList = []; // 任务列表管理
 let secondsElapsed = 0;
 let isRunning = false;
 let recordedDates = []; // 存储有记录的日期
@@ -20,10 +21,114 @@ function togglePanel(panelId) {
     panel.classList.toggle('active');
 }
 
+// 加载任务列表
+async function loadTaskList() {
+    try {
+        // 尝试从本地存储获取任务列表
+        const savedTasks = localStorage.getItem('studyTasks');
+        if (savedTasks) {
+            taskList = JSON.parse(savedTasks);
+        } else {
+            // 如果本地存储没有，使用默认任务列表
+            taskList = ['高等数学', '数据结构', '英语学习', '计算机组成原理'];
+            localStorage.setItem('studyTasks', JSON.stringify(taskList));
+        }
+        updateTaskSelect();
+    } catch (error) {
+        console.error('加载任务列表失败:', error);
+        taskList = ['高等数学', '英语学习', '编程练习', '阅读书籍'];
+        updateTaskSelect();
+    }
+}
+
+// 更新任务下拉框
+function updateTaskSelect() {
+    const taskSelect = document.getElementById('taskName');
+    if (!taskSelect) return;
+
+    // 保存当前选中的值
+    const currentValue = taskSelect.value;
+
+    // 清空下拉框
+    taskSelect.innerHTML = '';
+
+    // 添加任务选项
+    taskList.forEach(task => {
+        const option = document.createElement('option');
+        option.value = task;
+        option.textContent = task;
+        taskSelect.appendChild(option);
+    });
+
+    // 添加"添加新任务"选项
+    const newOption = document.createElement('option');
+    newOption.value = 'new';
+    newOption.textContent = '+ 添加新任务';
+    taskSelect.appendChild(newOption);
+
+    // 恢复之前选中的值，如果不存在则选择第一个
+    if (currentValue && taskList.includes(currentValue)) {
+        taskSelect.value = currentValue;
+    } else if (taskList.length > 0) {
+        taskSelect.value = taskList[0];
+    }
+}
+
+// 添加新任务
+async function addNewTask() {
+    const taskName = prompt('请输入新任务名称:', '');
+    if (!taskName || taskName.trim() === '') return;
+
+    const trimmedName = taskName.trim();
+
+    // 检查是否已存在
+    if (taskList.includes(trimmedName)) {
+        alert('该任务已存在！');
+        return;
+    }
+
+    // 添加到本地列表
+    taskList.push(trimmedName);
+
+    // 保存到本地存储
+    localStorage.setItem('studyTasks', JSON.stringify(taskList));
+
+    // 更新下拉框
+    updateTaskSelect();
+
+    // 选中新添加的任务
+    document.getElementById('taskName').value = trimmedName;
+}
+
+// 监听任务选择变化
+function setupTaskSelectListener() {
+    const taskSelect = document.getElementById('taskName');
+    if (!taskSelect) return;
+
+    taskSelect.addEventListener('change', function() {
+        if (this.value === 'new') {
+            addNewTask();
+            // 重置为第一个任务
+            setTimeout(() => {
+                if (taskList.length > 0) {
+                    this.value = taskList[0];
+                }
+            }, 100);
+        }
+    });
+}
+
 // 主计时按钮逻辑，处理开始计时与停止保存的循环。
 async function handleTimerClick() {
     const btn = document.getElementById('startBtn');
     const display = document.getElementById('display');
+    const taskSelect = document.getElementById('taskName');
+    
+    // 检查是否选择了有效的任务
+    if (taskSelect.value === 'new') {
+        alert('请先选择一个任务或添加新任务！');
+        return;
+    }
 
     if (!isRunning) {
         // 关键修改：记录点击开始时的确切时间戳（单位：毫秒）
@@ -78,8 +183,17 @@ async function saveStudyData() {
         if (!confirm("学习时间不到1分钟，确定要记录吗？")) return;
     }
 
+    const taskSelect = document.getElementById('taskName');
+    const selectedTask = taskSelect.value;
+    
+    // 确保不是选择了"添加新任务"
+    if (selectedTask === 'new') {
+        alert('请先选择一个有效的任务！');
+        return;
+    }
+
     const data = {
-        task_name: document.getElementById('taskName').value || "未命名任务",
+        task_name: selectedTask || "未命名任务",
         duration_sec: durationSec,
         note: document.getElementById('note').value
     };
@@ -112,8 +226,7 @@ async function performSave(customData) {
             alert("记录已保存");
             await updateCalendarData();
             loadRecords(finalData.date);
-            // 清空输入框以便下次使用
-            document.getElementById('taskName').value = "";
+            // 只清空备注，不清空任务选择框
             document.getElementById('note').value = "";
         }
     } catch (error) {
@@ -137,8 +250,33 @@ async function loadRecords(selectedDate) {
     const response = await fetch(`/api/records/${date}`);
     const records = await response.json();
 
+    // 计算当天总时长（秒）
+    const totalSeconds = records.reduce((sum, record) => sum + record.duration_sec, 0);
+    const totalDuration = formatDuration(totalSeconds);
+    
+    // 更新总时长显示
+    const totalDurationElement = document.getElementById('totalDurationValue');
+    const totalDurationDisplay = document.getElementById('totalDurationDisplay');
+    
+    if (totalDurationElement) {
+        totalDurationElement.textContent = totalDuration;
+        
+        // 更新标题显示（如果是今天显示"今日总时长"，否则显示日期）
+        const today = new Date().toLocaleDateString('en-CA');
+        const titleSpan = totalDurationDisplay.querySelector('span span:not(:first-child)');
+        if (titleSpan) {
+            if (date === today) {
+                titleSpan.textContent = '今日总时长';
+            } else {
+                titleSpan.textContent = `${date} 总时长`;
+            }
+        }
+    }
+    
     const list = document.getElementById('recordList');
-    list.innerHTML = records.length ? records.map(r => `
+    
+    // 创建记录列表HTML
+    const recordsHtml = records.length ? records.map(r => `
         <div class="record-item" style="position:relative;">
             <div style="display:flex; justify-content:space-between; font-weight:bold; padding-right:25px;">
                 <span>${r.task_name}</span>
@@ -151,6 +289,9 @@ async function loadRecords(selectedDate) {
                   style="position:absolute; top:10px; right:10px; cursor:pointer; opacity:0.5;">❌</span>
         </div>
     `).join('') : '<div style="padding:20px;text-align:center;opacity:0.5;">该日暂无记录</div>';
+    
+    // 更新记录列表
+    list.innerHTML = recordsHtml;
 }
 
 // 5. 删除功能 根据 ID 删除单条学习记录，并刷新当前视图。
@@ -266,9 +407,10 @@ function removeExt(filename) {
 }
 
 window.onload = () => {
+    loadTaskList();
+    setupTaskSelectListener();
     updateCalendarData();
     loadRecords();
-
 };
 
 let musicFiles = [];
@@ -466,6 +608,8 @@ audio.onended = nextMusic;
 
 // 页面加载启动
 window.onload = () => {
+    loadTaskList();
+    setupTaskSelectListener();
     initMusic();
     if (typeof updateCalendarData === 'function') updateCalendarData();
     if (typeof loadRecords === 'function') loadRecords();
@@ -566,6 +710,8 @@ async function renameFile(type, oldName) {
 // --- 背景视频逻辑 ---
 let publicVideoFiles = [];
 let currentVideoIndex = 0;
+let cachedVideo = null; // 缓存的下一个视频
+let autoSwitchTimer = null; // 自动切换定时器
 
 /**
  * initPublicVideos: 首页启动时获取公开视频列表
@@ -575,33 +721,151 @@ async function initPublicVideos() {
         const resp = await fetch('/api/public/videos');
         publicVideoFiles = await resp.json();
         console.log("背景列表已加载:", publicVideoFiles);
+        
+        if (publicVideoFiles.length > 0) {
+            // 预加载第一个视频
+            preloadNextVideo();
+            
+            // 启动自动切换定时器（10分钟）
+            startAutoSwitchTimer();
+        }
     } catch (e) {
         console.error("加载背景视频列表失败:", e);
     }
 }
 
 /**
- * nextBackground: 切换下一个视频
+ * preloadNextVideo: 预加载下一个视频
+ */
+function preloadNextVideo() {
+    if (publicVideoFiles.length <= 1) return;
+    
+    // 随机选择下一个视频（排除当前视频）
+    let nextIndex;
+    do {
+        nextIndex = Math.floor(Math.random() * publicVideoFiles.length);
+    } while (nextIndex === currentVideoIndex && publicVideoFiles.length > 1);
+    
+    const nextFileName = publicVideoFiles[nextIndex];
+    const videoUrl = `/static/videos/${nextFileName}?t=${Date.now()}`;
+    
+    // 创建隐藏的视频元素进行预加载
+    cachedVideo = document.createElement('video');
+    cachedVideo.src = videoUrl;
+    cachedVideo.preload = 'auto'; // 自动预加载
+    cachedVideo.style.display = 'none';
+    document.body.appendChild(cachedVideo);
+    
+    console.log(`预加载视频: ${nextFileName}`);
+}
+
+/**
+ * nextBackground: 切换下一个视频（无卡顿版本）
  */
 function nextBackground() {
     if (publicVideoFiles.length === 0) return;
 
     const video = document.getElementById('bg-video');
     const source = document.getElementById('video-source');
+    
+    // 如果有缓存的视频，直接使用
+    if (cachedVideo && cachedVideo.src) {
+        // 1. 更新当前视频索引
+        const cachedUrl = cachedVideo.src;
+        const fileNameMatch = cachedUrl.match(/\/static\/videos\/([^?]+)/);
+        if (fileNameMatch) {
+            const fileName = fileNameMatch[1];
+            currentVideoIndex = publicVideoFiles.indexOf(fileName);
+            if (currentVideoIndex === -1) {
+                // 如果找不到，使用下一个索引
+                currentVideoIndex = (currentVideoIndex + 1) % publicVideoFiles.length;
+            }
+        }
+        
+        // 2. 平滑切换：先淡出当前视频
+        video.style.opacity = '0';
+        
+        // 3. 短暂延迟后切换视频源
+        setTimeout(() => {
+            // 使用缓存的视频源
+            source.src = cachedVideo.src;
+            video.load();
+            
+            // 4. 播放并淡入
+            video.play().then(() => {
+                video.style.opacity = '1';
+                console.log(`切换到视频: ${source.src.split('/').pop()}`);
+                
+                // 5. 清理旧的缓存视频
+                if (cachedVideo && cachedVideo.parentNode) {
+                    cachedVideo.parentNode.removeChild(cachedVideo);
+                }
+                
+                // 6. 预加载下一个视频
+                preloadNextVideo();
+            }).catch(err => {
+                console.log("播放被拦截:", err);
+                video.style.opacity = '1';
+            });
+        }, 300); // 300ms淡出动画
+    } else {
+        // 没有缓存，使用原来的逻辑
+        let nextIndex;
+        do {
+            nextIndex = Math.floor(Math.random() * publicVideoFiles.length);
+        } while (nextIndex === currentVideoIndex && publicVideoFiles.length > 1);
+        
+        currentVideoIndex = nextIndex;
+        const fileName = publicVideoFiles[currentVideoIndex];
+        const videoUrl = `/static/videos/${fileName}?t=${Date.now()}`;
+        
+        video.style.opacity = '0';
+        
+        setTimeout(() => {
+            video.pause();
+            source.src = videoUrl;
+            video.load();
+            video.play().then(() => {
+                video.style.opacity = '1';
+                console.log(`切换到视频: ${fileName}`);
+                
+                // 预加载下一个视频
+                preloadNextVideo();
+            }).catch(err => {
+                console.log("播放被拦截:", err);
+                video.style.opacity = '1';
+            });
+        }, 300);
+    }
+}
 
-    // 1. 计算下一个视频索引
-    currentVideoIndex = (currentVideoIndex + 1) % publicVideoFiles.length;
-    const fileName = publicVideoFiles[currentVideoIndex];
+/**
+ * startAutoSwitchTimer: 启动自动切换定时器
+ */
+function startAutoSwitchTimer() {
+    // 清除现有定时器
+    if (autoSwitchTimer) {
+        clearInterval(autoSwitchTimer);
+    }
+    
+    // 每10分钟（600000毫秒）自动切换背景
+    autoSwitchTimer = setInterval(() => {
+        console.log('10分钟已到，自动切换背景');
+        nextBackground();
+    }, 10 * 60 * 1000); // 10分钟
+    
+    console.log('自动背景切换已启动，每10分钟切换一次');
+}
 
-    // 2. 更新视频源
-    // 添加时间戳 t=${Date.now()} 可以防止某些浏览器缓存导致切换失败
-    const videoUrl = `/static/videos/${fileName}?t=${Date.now()}`;
-
-    // 3. 切换逻辑
-    video.pause();
-    source.src = videoUrl;
-    video.load(); // 必须调用 load() 来重新加载新资源
-    video.play().catch(err => console.log("播放被拦截:", err));
+/**
+ * stopAutoSwitchTimer: 停止自动切换定时器
+ */
+function stopAutoSwitchTimer() {
+    if (autoSwitchTimer) {
+        clearInterval(autoSwitchTimer);
+        autoSwitchTimer = null;
+        console.log('自动背景切换已停止');
+    }
 }
 
 // --- 在页面加载时启动 ---

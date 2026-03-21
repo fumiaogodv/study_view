@@ -5,7 +5,7 @@ from flask import send_from_directory, make_response
 from werkzeug.utils import secure_filename
 import os
 from functools import wraps
-
+import json
 app = Flask(__name__)
 
 ADMIN_USER = os.environ.get('STUDY_ADMIN_USER', 'admin')
@@ -17,6 +17,18 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///study_data.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+# 定义 JSON 文件的路径
+TASKS_FILE = os.path.join('data', 'tasks.json')
+
+# 确保 data 目录存在
+if not os.path.exists('data'):
+    os.makedirs('data')
+
+# 如果文件不存在，初始化一个默认列表
+if not os.path.exists(TASKS_FILE):
+    with open(TASKS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(['高等数学', '英语学习', '编程练习', '阅读书籍'], f, ensure_ascii=False)
 
 
 # --- 数据库模型 ---
@@ -252,6 +264,32 @@ def admin_dashboard():
     if not session.get('logged_in'):
         return redirect('/admin') # 没登录就踢回登录页
     return render_template('admin.html')
+
+
+@app.route('/api/tasks', methods=['GET'])
+def get_tasks():
+    """获取任务列表"""
+    try:
+        with open(TASKS_FILE, 'r', encoding='utf-8') as f:
+            tasks = json.load(f)
+        return jsonify(tasks)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/tasks', methods=['POST'])
+def save_tasks():
+    """保存完整的任务列表"""
+    try:
+        data = request.json
+        new_tasks = data.get('tasks', [])
+
+        with open(TASKS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(new_tasks, f, ensure_ascii=False, indent=4)
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

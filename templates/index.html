@@ -40,7 +40,13 @@
         <h2>专注时钟</h2>
         <div class="timer-display" id="display">00:00</div>
 
-        <input type="text" id="taskName" placeholder="现在要学点什么？" value="高等数学">
+        <select id="taskName" style="width: 100%; box-sizing: border-box; margin-top: 10px; padding: 12px; border-radius: 8px; border: none; background: #000000; color: white; outline: none;">
+        <option value="高等数学">高等数学</option>
+        <option value="英语学习">英语学习</option>
+        <option value="编程练习">编程练习</option>
+        <option value="阅读书籍">阅读书籍</option>
+        <option value="new">+ 添加新任务</option>
+    </select>
         <textarea id="note" placeholder="备注 (可选)"></textarea>
 
         <button class="action-btn" onclick="handleTimerClick()" id="startBtn">开始学习</button>
@@ -106,6 +112,22 @@
                 <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
         </button>
+    </div>
+
+    <!-- 总时长显示区域 -->
+    <div id="totalDurationDisplay" class="total-duration-container record-item" style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding: 12px 15px;
+        font-weight: bold;
+    ">
+        <span style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1.2em;">⏱️</span>
+            <span>今日总时长</span>
+        </span>
+        <span id="totalDurationValue" style="color:#4CAF50; font-size: 1.2em;">0min</span>
     </div>
 
     <div id="recordList" class="record-container">

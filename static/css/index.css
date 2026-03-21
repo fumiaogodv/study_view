@@ -712,3 +712,22 @@ button.action-btn { background: var(--accent); font-weight: bold; cursor: pointe
 .add-btn-new:active {
     transform: scale(0.95);
 }
+
+/* 背景视频平滑过渡效果 */
+#bg-video {
+    width: 100%; 
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.5s ease-in-out; /* 添加淡入淡出过渡效果 */
+}
+
+/* 预加载视频元素样式 */
+.video-preload {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}

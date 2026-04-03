@@ -57,6 +57,10 @@ body, html {
 .task-detail-section {
     bottom: 80px; right: 20px; width: 320px; height: 40vh;
     transform: translateY(150%);
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    overflow: hidden; /* 防止内容溢出 */
 }
 .task-detail-section.active { transform: translateY(0); }
 
@@ -97,7 +101,33 @@ body, html {
 
 /* 8. 内部组件美化 */
 .record-container {
-    flex-grow: 1; overflow-y: auto; margin-top: 10px; padding-right: 5px;
+    flex-grow: 1;
+    overflow-y: auto;
+    margin-top: 10px;
+    padding-right: 5px;
+    /* 自定义滚动条样式 */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+/* Webkit浏览器滚动条样式 */
+.record-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.record-container::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+}
+
+.record-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+}
+
+.record-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
 }
 .record-item {
     background: rgba(255,255,255,0.1); margin-bottom: 8px;
@@ -730,4 +760,13 @@ button.action-btn { background: var(--accent); font-weight: bold; cursor: pointe
     height: 1px;
     opacity: 0;
     pointer-events: none;
+}
+
+/* 总时长容器样式 */
+.total-duration-container {
+    flex-shrink: 0; /* 防止被压缩 */
+    margin-bottom: 15px;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
 }

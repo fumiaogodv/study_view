@@ -30,7 +30,7 @@ async function loadTaskList() {
             taskList = JSON.parse(savedTasks);
         } else {
             // 如果本地存储没有，使用默认任务列表
-            taskList = ['高等数学', '数据结构', '英语学习', '计算机组成原理'];
+            taskList = ['高等数学', '英语学习', '编程练习', '阅读书籍'];
             localStorage.setItem('studyTasks', JSON.stringify(taskList));
         }
         updateTaskSelect();
@@ -45,13 +45,13 @@ async function loadTaskList() {
 function updateTaskSelect() {
     const taskSelect = document.getElementById('taskName');
     if (!taskSelect) return;
-
+    
     // 保存当前选中的值
     const currentValue = taskSelect.value;
-
+    
     // 清空下拉框
     taskSelect.innerHTML = '';
-
+    
     // 添加任务选项
     taskList.forEach(task => {
         const option = document.createElement('option');
@@ -59,13 +59,13 @@ function updateTaskSelect() {
         option.textContent = task;
         taskSelect.appendChild(option);
     });
-
+    
     // 添加"添加新任务"选项
     const newOption = document.createElement('option');
     newOption.value = 'new';
     newOption.textContent = '+ 添加新任务';
     taskSelect.appendChild(newOption);
-
+    
     // 恢复之前选中的值，如果不存在则选择第一个
     if (currentValue && taskList.includes(currentValue)) {
         taskSelect.value = currentValue;
@@ -78,24 +78,24 @@ function updateTaskSelect() {
 async function addNewTask() {
     const taskName = prompt('请输入新任务名称:', '');
     if (!taskName || taskName.trim() === '') return;
-
+    
     const trimmedName = taskName.trim();
-
+    
     // 检查是否已存在
     if (taskList.includes(trimmedName)) {
         alert('该任务已存在！');
         return;
     }
-
+    
     // 添加到本地列表
     taskList.push(trimmedName);
-
+    
     // 保存到本地存储
     localStorage.setItem('studyTasks', JSON.stringify(taskList));
-
+    
     // 更新下拉框
     updateTaskSelect();
-
+    
     // 选中新添加的任务
     document.getElementById('taskName').value = trimmedName;
 }
@@ -104,7 +104,7 @@ async function addNewTask() {
 function setupTaskSelectListener() {
     const taskSelect = document.getElementById('taskName');
     if (!taskSelect) return;
-
+    
     taskSelect.addEventListener('change', function() {
         if (this.value === 'new') {
             addNewTask();
@@ -371,14 +371,30 @@ async function performSave(customData) {
 }
 
 // 三 日历与格式化 (UI & Calendar)
-//  将学习时长（秒）格式化为更易读的 Xm Ys 字符串。
+//  将学习时长（秒）格式化为更易读的 Xh Ym Ys 字符串。
 function formatDuration(sec) {
     if (sec < 60) return `${sec}s`;
 
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
+    const hours = Math.floor(sec / 3600);
+    const minutes = Math.floor((sec % 3600) / 60);
+    const seconds = sec % 60;
 
-    return s === 0 ? `${m}min` : `${m}m ${s}s`;
+    if (hours > 0) {
+        if (minutes === 0 && seconds === 0) {
+            return `${hours}h`;
+        } else if (seconds === 0) {
+            return `${hours}h ${minutes}m`;
+        } else {
+            return `${hours}h ${minutes}m ${seconds}s`;
+        }
+    } else {
+        // 小于1小时的情况
+        if (seconds === 0) {
+            return `${minutes}min`;
+        } else {
+            return `${minutes}m ${seconds}s`;
+        }
+    }
 }
 
 // 初始化 Flatpickr 日历控件，处理日期标记和点击切换逻辑。

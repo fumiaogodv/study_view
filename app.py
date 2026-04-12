@@ -300,6 +300,7 @@ def get_subjects():
 def get_statistics_summary():
     start_date = request.args.get('start', '')
     end_date = request.args.get('end', '')
+    subject = request.args.get('subject', '').strip()
     
     query = StudyRecord.query
     
@@ -307,6 +308,8 @@ def get_statistics_summary():
         query = query.filter(StudyRecord.date >= start_date)
     if end_date:
         query = query.filter(StudyRecord.date <= end_date)
+    if subject:
+        query = query.filter(StudyRecord.task_name == subject)
     
     # 总学习时长（秒）
     total_seconds = db.session.query(db.func.sum(StudyRecord.duration_sec)).filter(
@@ -323,11 +326,16 @@ def get_statistics_summary():
         query.whereclause
     ).scalar() or 0
     
+    avg_daily_hours = 0.0
+    if study_days > 0:
+        avg_daily_hours = round((total_seconds / 3600) / study_days, 2)
+    
     return jsonify({
         'total_duration_seconds': total_seconds,
         'total_duration_hours': round(total_seconds / 3600, 2),
         'subject_count': subject_count,
-        'study_days': study_days
+        'study_days': study_days,
+        'avg_daily_hours': avg_daily_hours
     })
 
 # 3. 获取周期统计数据
@@ -336,6 +344,7 @@ def get_period_statistics():
     period = request.args.get('period', 'day')
     start_date = request.args.get('start', '')
     end_date = request.args.get('end', '')
+    subject = request.args.get('subject', '').strip()
     
     query = StudyRecord.query
     
@@ -343,6 +352,8 @@ def get_period_statistics():
         query = query.filter(StudyRecord.date >= start_date)
     if end_date:
         query = query.filter(StudyRecord.date <= end_date)
+    if subject:
+        query = query.filter(StudyRecord.task_name == subject)
     
     records = query.order_by(StudyRecord.date).all()
     
@@ -383,7 +394,7 @@ def get_period_statistics():
             }
             for week_key, seconds in sorted(weekly_data.items())
         ]
-    else:  # month
+    elif period == 'month':
         # 按月统计
         monthly_data = {}
         for record in records:
@@ -402,6 +413,24 @@ def get_period_statistics():
             }
             for month_key, seconds in sorted(monthly_data.items())
         ]
+    elif period == 'weekday':
+        # 按星期几汇总（周一～周日），与 Python weekday() 一致：0=周一 … 6=周日
+        weekday_labels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+        weekday_data = {i: 0 for i in range(7)}
+        for record in records:
+            date_obj = datetime.strptime(record.date, '%Y-%m-%d')
+            wd = date_obj.weekday()
+            weekday_data[wd] += record.duration_sec
+        result = [
+            {
+                'label': weekday_labels[i],
+                'duration_seconds': weekday_data[i],
+                'duration_hours': round(weekday_data[i] / 3600, 2)
+            }
+            for i in range(7)
+        ]
+    else:
+        result = []
     
     return jsonify(result)
 
@@ -410,6 +439,7 @@ def get_period_statistics():
 def get_subject_distribution():
     start_date = request.args.get('start', '')
     end_date = request.args.get('end', '')
+    subject = request.args.get('subject', '').strip()
     
     query = StudyRecord.query
     
@@ -417,6 +447,8 @@ def get_subject_distribution():
         query = query.filter(StudyRecord.date >= start_date)
     if end_date:
         query = query.filter(StudyRecord.date <= end_date)
+    if subject:
+        query = query.filter(StudyRecord.task_name == subject)
     
     subjects = db.session.query(
         StudyRecord.task_name,

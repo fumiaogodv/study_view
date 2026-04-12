@@ -5,6 +5,7 @@ from flask import send_from_directory, make_response
 from werkzeug.utils import secure_filename
 import os
 from functools import wraps
+from collections import defaultdict
 
 app = Flask(__name__)
 
@@ -258,256 +259,85 @@ def admin_dashboard():
         return redirect('/admin') # 没登录就踢回登录页
     return render_template('admin.html')
 
-# ==================== 统计数据API路由 ====================
+# ==================== 统计数据 API ====================
 
-# 1. 获取科目列表
-@app.route('/api/statistics/subjects', methods=['GET'])
-def get_subjects():
-    start_date = request.args.get('start', '')
-    end_date = request.args.get('end', '')
-    
-    query = StudyRecord.query
-    
-    if start_date:
-        query = query.filter(StudyRecord.date >= start_date)
-    if end_date:
-        query = query.filter(StudyRecord.date <= end_date)
-    
-    subjects = db.session.query(
-        StudyRecord.task_name,
-        db.func.sum(StudyRecord.duration_sec).label('total_seconds')
-    ).filter(
-        query.whereclause
-    ).group_by(
-        StudyRecord.task_name
-    ).order_by(
-        db.desc('total_seconds')
-    ).all()
-    
-    result = [
-        {
-            'name': subject.task_name,
-            'total_seconds': subject.total_seconds,
-            'duration_hours': round(subject.total_seconds / 3600, 2)
-        }
-        for subject in subjects
+
+def _time_bucket_key(record_date_str, granularity):
+    """将一条记录的日期映射为折线图横轴桶：day / week / month。"""
+    d = datetime.strptime(record_date_str, '%Y-%m-%d')
+    if granularity == 'week':
+        y, w, _ = d.isocalendar()
+        return f'{y}-W{w:02d}'
+    if granularity == 'month':
+        return d.strftime('%Y-%m')
+    return record_date_str
+
+
+def _line_by_granularity(records, granularity, subject=None):
+    """
+    折线：按粒度汇总学习时长（小时）。
+    subject 为空 → 全部科目合计；否则仅该 task_name。
+    """
+    subject = (subject or '').strip()
+    buckets = defaultdict(int)
+    for r in records:
+        if subject and r.task_name != subject:
+            continue
+        k = _time_bucket_key(r.date, granularity)
+        buckets[k] += r.duration_sec
+
+    ordered = sorted(buckets.keys())
+    return [
+        {'label': k, 'duration_hours': round(buckets[k] / 3600.0, 2)}
+        for k in ordered
     ]
-    
-    return jsonify(result)
 
-# 2. 获取统计摘要
-@app.route('/api/statistics/summary', methods=['GET'])
-def get_statistics_summary():
+
+def _pie_by_subject(records):
+    """饼图：区间内各科总时长（小时），与折线粒度无关。"""
+    totals = defaultdict(int)
+    for r in records:
+        totals[r.task_name] += r.duration_sec
+    return [
+        {'name': n, 'duration_hours': round(sec / 3600.0, 2)}
+        for n, sec in sorted(totals.items(), key=lambda x: -x[1])
+    ]
+
+
+@app.route('/api/statistics/charts', methods=['GET'])
+def get_statistics_charts():
+    """
+    折线 + 饼图联动：共用 start、end、granularity（day|week|month）。
+    subject 仅影响折线；饼图始终为区间内各科占比。
+    """
     start_date = request.args.get('start', '')
     end_date = request.args.get('end', '')
+    granularity = request.args.get('granularity', 'day')
+    if granularity not in ('day', 'week', 'month'):
+        granularity = 'day'
     subject = request.args.get('subject', '').strip()
-    
+
     query = StudyRecord.query
-    
     if start_date:
         query = query.filter(StudyRecord.date >= start_date)
     if end_date:
         query = query.filter(StudyRecord.date <= end_date)
-    if subject:
-        query = query.filter(StudyRecord.task_name == subject)
-    
-    # 总学习时长（秒）
-    total_seconds = db.session.query(db.func.sum(StudyRecord.duration_sec)).filter(
-        query.whereclause
-    ).scalar() or 0
-    
-    # 不同科目数量
-    subject_count = db.session.query(db.func.count(db.distinct(StudyRecord.task_name))).filter(
-        query.whereclause
-    ).scalar() or 0
-    
-    # 学习天数
-    study_days = db.session.query(db.func.count(db.distinct(StudyRecord.date))).filter(
-        query.whereclause
-    ).scalar() or 0
-    
-    avg_daily_hours = 0.0
-    if study_days > 0:
-        avg_daily_hours = round((total_seconds / 3600) / study_days, 2)
-    
+
+    records = query.order_by(StudyRecord.date).all()
+
+    line = _line_by_granularity(records, granularity, subject)
+    pie = _pie_by_subject(records)
+
+    subject_options = [row['name'] for row in pie]
+
     return jsonify({
-        'total_duration_seconds': total_seconds,
-        'total_duration_hours': round(total_seconds / 3600, 2),
-        'subject_count': subject_count,
-        'study_days': study_days,
-        'avg_daily_hours': avg_daily_hours
+        'granularity': granularity,
+        'subject': subject,
+        'line': line,
+        'pie': pie,
+        'subject_options': subject_options,
     })
 
-# 3. 获取周期统计数据
-@app.route('/api/statistics/period', methods=['GET'])
-def get_period_statistics():
-    period = request.args.get('period', 'day')
-    start_date = request.args.get('start', '')
-    end_date = request.args.get('end', '')
-    subject = request.args.get('subject', '').strip()
-    
-    query = StudyRecord.query
-    
-    if start_date:
-        query = query.filter(StudyRecord.date >= start_date)
-    if end_date:
-        query = query.filter(StudyRecord.date <= end_date)
-    if subject:
-        query = query.filter(StudyRecord.task_name == subject)
-    
-    records = query.order_by(StudyRecord.date).all()
-    
-    if period == 'day':
-        # 按天统计
-        daily_data = {}
-        for record in records:
-            date = record.date
-            if date not in daily_data:
-                daily_data[date] = 0
-            daily_data[date] += record.duration_sec
-        
-        result = [
-            {
-                'label': date,
-                'duration_seconds': seconds,
-                'duration_hours': round(seconds / 3600, 2)
-            }
-            for date, seconds in sorted(daily_data.items())
-        ]
-    elif period == 'week':
-        # 按周统计
-        weekly_data = {}
-        for record in records:
-            date_obj = datetime.strptime(record.date, '%Y-%m-%d')
-            year, week_num, _ = date_obj.isocalendar()
-            week_key = f'{year}-W{week_num:02d}'
-            
-            if week_key not in weekly_data:
-                weekly_data[week_key] = 0
-            weekly_data[week_key] += record.duration_sec
-        
-        result = [
-            {
-                'label': week_key,
-                'duration_seconds': seconds,
-                'duration_hours': round(seconds / 3600, 2)
-            }
-            for week_key, seconds in sorted(weekly_data.items())
-        ]
-    elif period == 'month':
-        # 按月统计
-        monthly_data = {}
-        for record in records:
-            date_obj = datetime.strptime(record.date, '%Y-%m-%d')
-            month_key = date_obj.strftime('%Y-%m')
-            
-            if month_key not in monthly_data:
-                monthly_data[month_key] = 0
-            monthly_data[month_key] += record.duration_sec
-        
-        result = [
-            {
-                'label': month_key,
-                'duration_seconds': seconds,
-                'duration_hours': round(seconds / 3600, 2)
-            }
-            for month_key, seconds in sorted(monthly_data.items())
-        ]
-    elif period == 'weekday':
-        # 按星期几汇总（周一～周日），与 Python weekday() 一致：0=周一 … 6=周日
-        weekday_labels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-        weekday_data = {i: 0 for i in range(7)}
-        for record in records:
-            date_obj = datetime.strptime(record.date, '%Y-%m-%d')
-            wd = date_obj.weekday()
-            weekday_data[wd] += record.duration_sec
-        result = [
-            {
-                'label': weekday_labels[i],
-                'duration_seconds': weekday_data[i],
-                'duration_hours': round(weekday_data[i] / 3600, 2)
-            }
-            for i in range(7)
-        ]
-    else:
-        result = []
-    
-    return jsonify(result)
-
-# 4. 获取科目分布数据
-@app.route('/api/statistics/subject-distribution', methods=['GET'])
-def get_subject_distribution():
-    start_date = request.args.get('start', '')
-    end_date = request.args.get('end', '')
-    subject = request.args.get('subject', '').strip()
-    
-    query = StudyRecord.query
-    
-    if start_date:
-        query = query.filter(StudyRecord.date >= start_date)
-    if end_date:
-        query = query.filter(StudyRecord.date <= end_date)
-    if subject:
-        query = query.filter(StudyRecord.task_name == subject)
-    
-    subjects = db.session.query(
-        StudyRecord.task_name,
-        db.func.sum(StudyRecord.duration_sec).label('total_seconds')
-    ).filter(
-        query.whereclause
-    ).group_by(
-        StudyRecord.task_name
-    ).order_by(
-        db.desc('total_seconds')
-    ).all()
-    
-    result = [
-        {
-            'name': subject.task_name,
-            'total_seconds': subject.total_seconds,
-            'duration_hours': round(subject.total_seconds / 3600, 2)
-        }
-        for subject in subjects
-    ]
-    
-    return jsonify(result)
-
-# 5. 获取特定科目趋势数据
-@app.route('/api/statistics/subject-trend', methods=['GET'])
-def get_subject_trend():
-    subject = request.args.get('subject', '')
-    start_date = request.args.get('start', '')
-    end_date = request.args.get('end', '')
-    
-    if not subject:
-        return jsonify([])
-    
-    query = StudyRecord.query.filter(StudyRecord.task_name == subject)
-    
-    if start_date:
-        query = query.filter(StudyRecord.date >= start_date)
-    if end_date:
-        query = query.filter(StudyRecord.date <= end_date)
-    
-    records = query.order_by(StudyRecord.date).all()
-    
-    daily_data = {}
-    for record in records:
-        date = record.date
-        if date not in daily_data:
-            daily_data[date] = 0
-        daily_data[date] += record.duration_sec
-    
-    result = [
-        {
-            'date': date,
-            'duration_seconds': seconds,
-            'duration_hours': round(seconds / 3600, 2)
-        }
-        for date, seconds in sorted(daily_data.items())
-    ]
-    
-    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

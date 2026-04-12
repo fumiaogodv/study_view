@@ -1,556 +1,321 @@
-// 学习数据统计 JavaScript
+(function () {
+    'use strict';
 
-let periodChart = null;
-let subjectChart = null;
-let subjectTrendChart = null;
-let currentPeriod = 'weekday';
-let currentSubject = '';
-let startDate = null;
-let endDate = null;
+    const chartText = { color: 'rgba(255, 255, 255, 0.82)' };
+    const gridColor = 'rgba(255, 255, 255, 0.1)';
 
-const MODAL_TITLES = {
-    period: '📊 学习时长',
-    subject: '📚 科目分布',
-    trend: '📈 科目按日趋势',
-    list: '📋 科目明细'
-};
+    let pieChart = null;
+    let lineChart = null;
 
-function subjectQueryParam() {
-    return currentSubject ? `&subject=${encodeURIComponent(currentSubject)}` : '';
-}
+    let startDate = '';
+    let endDate = '';
+    let granularity = 'day';
+    let selectedSubject = '';
 
-function setDateRangeDays(days) {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - (days - 1));
-    startDate = start.toISOString().split('T')[0];
-    endDate = end.toISOString().split('T')[0];
-    document.getElementById('startDate').value = startDate;
-    document.getElementById('endDate').value = endDate;
-}
-
-function initStatistics() {
-    setDateRangeDays(7);
-
-    bindEvents();
-    loadAllData();
-}
-
-function bindEvents() {
-    document.querySelectorAll('.period-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            currentPeriod = this.dataset.period;
-            loadPeriodData();
-        });
-    });
-
-    document.getElementById('applyDateRange').addEventListener('click', function () {
-        startDate = document.getElementById('startDate').value;
-        endDate = document.getElementById('endDate').value;
-
-        if (!startDate || !endDate) {
-            alert('请选择完整的日期范围');
-            return;
-        }
-
-        if (new Date(startDate) > new Date(endDate)) {
-            alert('开始日期不能晚于结束日期');
-            return;
-        }
-
-        loadAllData();
-    });
-
-    document.querySelectorAll('.quick-date-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const days = parseInt(this.dataset.days, 10);
-            if (!days || days < 1) return;
-            setDateRangeDays(days);
-            loadAllData();
-        });
-    });
-
-    document.getElementById('subjectSelect').addEventListener('change', function () {
-        currentSubject = this.value;
-        loadAllData();
-    });
-
-    const modal = document.getElementById('chartModal');
-    document.getElementById('chartModalClose').addEventListener('click', closeChartModal);
-    document.getElementById('chartModalBackdrop').addEventListener('click', closeChartModal);
-
-    document.querySelectorAll('.chart-open-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            openChartModal(this.dataset.openChart);
-        });
-    });
-
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && modal.classList.contains('open')) {
-            closeChartModal();
-        }
-    });
-}
-
-function openChartModal(which) {
-    const modal = document.getElementById('chartModal');
-    const titleEl = document.getElementById('chartModalTitle');
-
-    if (which === 'trend' && !currentSubject) {
-        alert('请先在「科目」中选择具体科目，再查看按日趋势。');
-        return;
+    function padRange(days) {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - (days - 1));
+        startDate = start.toISOString().slice(0, 10);
+        endDate = end.toISOString().slice(0, 10);
+        document.getElementById('startDate').value = startDate;
+        document.getElementById('endDate').value = endDate;
     }
 
-    titleEl.textContent = MODAL_TITLES[which] || '图表';
+    function chartOverlay(id, mode) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (mode === 'hide') {
+            el.style.display = 'none';
+            return;
+        }
+        el.style.display = 'flex';
+        el.textContent = mode === 'load' ? '加载中…' : '暂无数据';
+    }
 
-    document.querySelectorAll('.modal-chart-panel').forEach(p => p.classList.remove('active'));
-    const panel = document.getElementById(
-        which === 'period' ? 'modalPanelPeriod'
-            : which === 'subject' ? 'modalPanelSubject'
-            : which === 'trend' ? 'modalPanelTrend'
-            : 'modalPanelList'
-    );
-    if (panel) panel.classList.add('active');
+    function granularityLabel() {
+        if (granularity === 'week') return '按周';
+        if (granularity === 'month') return '按月';
+        return '按天';
+    }
 
-    modal.classList.add('open');
-    modal.setAttribute('aria-hidden', 'false');
+    function palette(n) {
+        const base = [
+            'rgba(129, 199, 132, 0.85)',
+            'rgba(100, 181, 246, 0.85)',
+            'rgba(255, 183, 77, 0.85)',
+            'rgba(186, 104, 200, 0.85)',
+            'rgba(239, 83, 80, 0.85)',
+            'rgba(77, 208, 225, 0.85)',
+            'rgba(255, 213, 79, 0.85)',
+            'rgba(165, 214, 167, 0.85)',
+        ];
+        const out = base.slice(0, n);
+        while (out.length < n) {
+            const h = (out.length * 47) % 360;
+            out.push(`hsla(${h}, 65%, 58%, 0.85)`);
+        }
+        return out;
+    }
 
-    resizeVisibleCharts();
-}
+    function destroyChart(ref) {
+        if (ref) ref.destroy();
+        return null;
+    }
 
-function closeChartModal() {
-    const modal = document.getElementById('chartModal');
-    modal.classList.remove('open');
-    modal.setAttribute('aria-hidden', 'true');
-}
+    function fillSubjectSelect(options, preserve) {
+        const sel = document.getElementById('subjectSelect');
+        const prev = preserve ? sel.value : '';
+        sel.innerHTML = '<option value="">全部</option>';
+        (options || []).forEach((name) => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            sel.appendChild(opt);
+        });
+        if (prev && options && options.includes(prev)) {
+            sel.value = prev;
+            selectedSubject = prev;
+        } else {
+            sel.value = '';
+            selectedSubject = '';
+        }
+    }
 
-function resizeVisibleCharts() {
-    requestAnimationFrame(() => {
+    function renderPie(rows) {
+        const ctx = document.getElementById('chartPie').getContext('2d');
+        pieChart = destroyChart(pieChart);
+
+        if (!rows || !rows.length) return;
+
+        const labels = rows.map((r) => r.name);
+        const data = rows.map((r) => r.duration_hours || 0);
+        const total = data.reduce((a, b) => a + b, 0);
+        const colors = palette(labels.length);
+
+        pieChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        data,
+                        backgroundColor: colors,
+                        borderColor: 'rgba(20, 24, 28, 0.9)',
+                        borderWidth: 1,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: window.innerWidth < 960 ? 'bottom' : 'right',
+                        labels: { color: chartText.color, padding: 6, font: { size: 9 }, boxWidth: 10 },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label(ctx) {
+                                const v = ctx.parsed || 0;
+                                const pct = total > 0 ? ((v / total) * 100).toFixed(1) : '0';
+                                return `${ctx.label}: ${Number(v).toFixed(2)} 小时 (${pct}%)`;
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+
+    function renderLine(rows, lineLabel) {
+        const ctx = document.getElementById('chartLine').getContext('2d');
+        lineChart = destroyChart(lineChart);
+
+        if (!rows || !rows.length) return;
+
+        const labels = rows.map((r) => r.label);
+        const data = rows.map((r) => Number((r.duration_hours || 0).toFixed(2)));
+
+        lineChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: lineLabel,
+                        data,
+                        borderColor: 'rgba(129, 199, 132, 1)',
+                        backgroundColor: 'rgba(129, 199, 132, 0.12)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: chartText.color },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label(ctx) {
+                                return `${ctx.dataset.label}: ${ctx.parsed.y} 小时`;
+                            },
+                        },
+                    },
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: '时间',
+                            color: chartText.color,
+                            font: { size: 11 },
+                        },
+                        ticks: { color: chartText.color, maxRotation: 45 },
+                        grid: { color: gridColor },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '学习时长（小时）',
+                            color: chartText.color,
+                            font: { size: 11 },
+                        },
+                        ticks: {
+                            color: chartText.color,
+                            callback: (v) => v + ' h',
+                        },
+                        grid: { color: gridColor },
+                    },
+                },
+            },
+        });
+    }
+
+    function resizeCharts() {
+        requestAnimationFrame(() => {
+            if (lineChart) lineChart.resize();
+            if (pieChart) pieChart.resize();
+        });
         setTimeout(() => {
-            if (periodChart) periodChart.resize();
-            if (subjectChart) subjectChart.resize();
-            if (subjectTrendChart) subjectTrendChart.resize();
-        }, 80);
-    });
-}
-
-async function loadAllData() {
-    try {
-        const prevSubject = currentSubject;
-        await loadSubjects();
-        const select = document.getElementById('subjectSelect');
-        if (prevSubject && Array.from(select.options).some(o => o.value === prevSubject)) {
-            select.value = prevSubject;
-            currentSubject = prevSubject;
-        } else {
-            select.value = '';
-            currentSubject = '';
-        }
-
-        await loadStatistics();
-        await loadPeriodData();
-        await loadSubjectDistribution();
-
-        if (currentSubject) {
-            await loadSubjectTrendData();
-        } else {
-            hideChart('trendLoading');
-            if (subjectTrendChart) {
-                subjectTrendChart.destroy();
-                subjectTrendChart = null;
-            }
-            const tl = document.getElementById('trendLoading');
-            if (tl) {
-                tl.textContent = '请选择科目后查看按日曲线';
-                tl.style.display = 'block';
-            }
-        }
-    } catch (error) {
-        console.error('加载数据失败:', error);
-        alert('加载数据失败，请检查网络连接');
+            if (lineChart) lineChart.resize();
+            if (pieChart) pieChart.resize();
+        }, 120);
     }
-}
 
-async function loadSubjects() {
-    try {
-        const response = await fetch(`/api/statistics/subjects?start=${startDate}&end=${endDate}`);
-        const subjects = await response.json();
-
-        const select = document.getElementById('subjectSelect');
-        select.innerHTML = '';
-        const optAll = document.createElement('option');
-        optAll.value = '';
-        optAll.textContent = '全部科目（默认）';
-        select.appendChild(optAll);
-
-        subjects.forEach(subject => {
-            const option = document.createElement('option');
-            option.value = subject.name;
-            option.textContent = subject.name;
-            select.appendChild(option);
+    function syncGranularityButtons() {
+        document.querySelectorAll('.gran-btn').forEach((btn) => {
+            btn.classList.toggle('active', btn.getAttribute('data-granularity') === granularity);
         });
-    } catch (error) {
-        console.error('加载科目列表失败:', error);
     }
-}
 
-async function loadStatistics() {
-    try {
-        const response = await fetch(
-            `/api/statistics/summary?start=${startDate}&end=${endDate}${subjectQueryParam()}`
-        );
-        const stats = await response.json();
+    async function loadCharts() {
+        chartOverlay('loadPie', 'load');
+        chartOverlay('loadLine', 'load');
+        pieChart = destroyChart(pieChart);
+        lineChart = destroyChart(lineChart);
 
-        document.getElementById('totalDuration').textContent =
-            `${(stats.total_duration_hours || 0).toFixed(1)} 小时`;
-        document.getElementById('subjectCount').textContent = stats.subject_count || 0;
-        document.getElementById('studyDays').textContent = stats.study_days || 0;
-        document.getElementById('avgDailyDuration').textContent =
-            `${(stats.avg_daily_hours || 0).toFixed(2)} 小时`;
+        const subQs = selectedSubject ? `&subject=${encodeURIComponent(selectedSubject)}` : '';
 
-        const desc = document.querySelector('#totalDuration').closest('.stat-card').querySelector('.stat-desc');
-        if (desc) {
-            desc.textContent = currentSubject
-                ? `所选时间内科目「${currentSubject}」`
-                : '所选时间段内的总学习时间';
+        try {
+            const url =
+                `/api/statistics/charts?start=${encodeURIComponent(startDate)}` +
+                `&end=${encodeURIComponent(endDate)}` +
+                `&granularity=${encodeURIComponent(granularity)}` +
+                subQs;
+
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('请求失败');
+            const data = await res.json();
+
+            if (data.granularity) granularity = data.granularity;
+            syncGranularityButtons();
+
+            fillSubjectSelect(data.subject_options || [], true);
+
+            const pieRows = data.pie || [];
+            const lineRows = data.line || [];
+
+            const lineLabel = selectedSubject
+                ? `「${selectedSubject}」时长（${granularityLabel()}）`
+                : `全部科目合计（${granularityLabel()}）`;
+
+            document.getElementById('lineSub').textContent =
+                `横轴：${granularityLabel()} · 纵轴：学习时长（小时）` +
+                (selectedSubject ? ` · 当前科目：${selectedSubject}` : ' · 全部科目合计');
+
+            document.getElementById('pieSub').textContent =
+                `区间 ${startDate} ~ ${endDate} · 各科总时长占比（与折线共用日期范围；切换「按天/周/月」会同时刷新两图，折线横轴随之变化）`;
+
+            renderLine(lineRows, lineLabel);
+            renderPie(pieRows);
+            resizeCharts();
+
+            chartOverlay('loadLine', lineRows.length ? 'hide' : 'empty');
+            chartOverlay('loadPie', pieRows.length ? 'hide' : 'empty');
+        } catch (e) {
+            console.error(e);
+            chartOverlay('loadLine', 'empty');
+            chartOverlay('loadPie', 'empty');
+            document.getElementById('loadLine').textContent = '加载失败';
+            document.getElementById('loadPie').textContent = '加载失败';
+            alert('加载统计失败，请稍后重试');
         }
-    } catch (error) {
-        console.error('加载统计数据失败:', error);
     }
-}
 
-async function loadPeriodData() {
-    showChartLoading('periodLoading');
-
-    try {
-        const response = await fetch(
-            `/api/statistics/period?period=${currentPeriod}&start=${startDate}&end=${endDate}${subjectQueryParam()}`
-        );
-        const data = await response.json();
-
-        hideChart('periodLoading');
-        renderPeriodChart(data);
-    } catch (error) {
-        console.error('加载周期数据失败:', error);
-        hideChart('periodLoading');
-    }
-}
-
-async function loadSubjectDistribution() {
-    showChartLoading('subjectLoading');
-
-    try {
-        const response = await fetch(
-            `/api/statistics/subject-distribution?start=${startDate}&end=${endDate}${subjectQueryParam()}`
-        );
-        const data = await response.json();
-
-        hideChart('subjectLoading');
-        renderSubjectChart(data);
-        renderSubjectList(data);
-    } catch (error) {
-        console.error('加载科目分布数据失败:', error);
-        hideChart('subjectLoading');
-    }
-}
-
-async function loadSubjectTrendData() {
-    if (!currentSubject) return;
-
-    showChartLoading('trendLoading');
-    const tl = document.getElementById('trendLoading');
-    if (tl) tl.textContent = '加载中...';
-
-    try {
-        const response = await fetch(
-            `/api/statistics/subject-trend?subject=${encodeURIComponent(currentSubject)}&start=${startDate}&end=${endDate}`
-        );
-        const data = await response.json();
-
-        if (!data.length) {
-            if (subjectTrendChart) {
-                subjectTrendChart.destroy();
-                subjectTrendChart = null;
+    function bind() {
+        document.getElementById('btnApply').addEventListener('click', () => {
+            startDate = document.getElementById('startDate').value;
+            endDate = document.getElementById('endDate').value;
+            if (!startDate || !endDate) {
+                alert('请选择起止日期');
+                return;
             }
-            const tl = document.getElementById('trendLoading');
-            if (tl) {
-                tl.textContent = '该时间段内暂无该科目的按日记录';
-                tl.style.display = 'block';
+            if (startDate > endDate) {
+                alert('开始日期不能晚于结束日期');
+                return;
             }
-            return;
-        }
+            loadCharts();
+        });
 
-        hideChart('trendLoading');
-        renderSubjectTrendChart(data);
-    } catch (error) {
-        console.error('加载科目趋势数据失败:', error);
-        hideChart('trendLoading');
-    }
-}
-
-function renderPeriodChart(data) {
-    const ctx = document.getElementById('periodChart').getContext('2d');
-
-    if (periodChart) {
-        periodChart.destroy();
-    }
-
-    const labels = data.map(item => item.label);
-    const durations = data.map(item => Number((item.duration_hours || 0).toFixed(2)));
-
-    let periodUnit = '天';
-    if (currentPeriod === 'week') periodUnit = '周';
-    if (currentPeriod === 'month') periodUnit = '月';
-    if (currentPeriod === 'weekday') periodUnit = '星期';
-
-    const scope = currentSubject ? `「${currentSubject}」` : '全部科目';
-
-    periodChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: `${scope} · 学习时长（小时/${periodUnit}）`,
-                data: durations,
-                backgroundColor: 'rgba(76, 175, 80, 0.6)',
-                borderColor: 'rgba(76, 175, 80, 1)',
-                borderWidth: 1,
-                borderRadius: 5
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: {
-                        color: 'rgba(255, 255, 255, 0.8)'
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            return `学习时长: ${context.parsed.y} 小时`;
-                        }
-                    }
+        document.querySelectorAll('.quick-range .quick').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const d = parseInt(btn.getAttribute('data-days'), 10);
+                if (d > 0) {
+                    padRange(d);
+                    loadCharts();
                 }
-            },
-            scales: {
-                x: {
-                    ticks: {
-                        color: 'rgba(255, 255, 255, 0.8)',
-                        maxRotation: 45
-                    },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        color: 'rgba(255, 255, 255, 0.8)',
-                        callback: function (value) {
-                            return value + ' 小时';
-                        }
-                    },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    }
-                }
-            }
-        }
+            });
+        });
+
+        document.querySelectorAll('.gran-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                granularity = btn.getAttribute('data-granularity') || 'day';
+                syncGranularityButtons();
+                loadCharts();
+            });
+        });
+
+        document.getElementById('subjectSelect').addEventListener('change', () => {
+            selectedSubject = document.getElementById('subjectSelect').value;
+            loadCharts();
+        });
+
+        window.addEventListener('resize', () => resizeCharts());
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        padRange(30);
+        syncGranularityButtons();
+        bind();
+        loadCharts();
     });
-}
-
-function renderSubjectChart(data) {
-    const ctx = document.getElementById('subjectChart').getContext('2d');
-
-    if (subjectChart) {
-        subjectChart.destroy();
-    }
-
-    const labels = data.map(item => item.name);
-    const durations = data.map(item => item.duration_hours || 0);
-    const total = durations.reduce((sum, duration) => sum + duration, 0);
-    const percentages = durations.map(duration =>
-        total > 0 ? ((duration / total) * 100).toFixed(1) : 0
-    );
-    const colors = generateColors(data.length);
-
-    const legendPos = window.innerWidth < 640 ? 'bottom' : 'right';
-
-    subjectChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: durations,
-                backgroundColor: colors,
-                borderColor: 'rgba(255, 255, 255, 0.2)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: legendPos,
-                    labels: {
-                        color: 'rgba(255, 255, 255, 0.8)',
-                        padding: 12,
-                        font: { size: 12 }
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            const label = context.label || '';
-                            const value = context.parsed || 0;
-                            const percentage = percentages[context.dataIndex] || 0;
-                            return `${label}: ${Number(value).toFixed(2)} 小时 (${percentage}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-function renderSubjectTrendChart(data) {
-    const ctx = document.getElementById('subjectTrendChart').getContext('2d');
-
-    if (subjectTrendChart) {
-        subjectTrendChart.destroy();
-    }
-
-    const labels = data.map(item => item.date);
-    const durations = data.map(item => Number((item.duration_hours || 0).toFixed(2)));
-
-    subjectTrendChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: `${currentSubject} · 每日时长（小时）`,
-                data: durations,
-                backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                borderColor: 'rgba(76, 175, 80, 1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: {
-                        color: 'rgba(255, 255, 255, 0.8)'
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            return `学习时长: ${context.parsed.y} 小时`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    ticks: {
-                        color: 'rgba(255, 255, 255, 0.8)',
-                        maxRotation: 45
-                    },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        color: 'rgba(255, 255, 255, 0.8)',
-                        callback: function (value) {
-                            return value + ' 小时';
-                        }
-                    },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    }
-                }
-            }
-        }
-    });
-}
-
-function renderSubjectList(data) {
-    const container = document.getElementById('subjectList');
-    const total = data.reduce((sum, item) => sum + (item.duration_hours || 0), 0);
-
-    if (!data.length) {
-        container.innerHTML = '<p style="opacity:0.8;margin:0;">该条件下暂无记录</p>';
-        return;
-    }
-
-    let html = '';
-    data.forEach(item => {
-        const percentage = total > 0 ? ((item.duration_hours / total) * 100).toFixed(1) : 0;
-        html += `
-            <div class="subject-item">
-                <div class="subject-name">${item.name}</div>
-                <div class="subject-duration">${item.duration_hours.toFixed(2)} 小时</div>
-                <div class="subject-percentage">${percentage}%</div>
-            </div>
-        `;
-    });
-
-    container.innerHTML = html;
-}
-
-function generateColors(count) {
-    const colors = [
-        'rgba(76, 175, 80, 0.8)',
-        'rgba(33, 150, 243, 0.8)',
-        'rgba(255, 152, 0, 0.8)',
-        'rgba(156, 39, 176, 0.8)',
-        'rgba(244, 67, 54, 0.8)',
-        'rgba(0, 188, 212, 0.8)',
-        'rgba(255, 193, 7, 0.8)',
-        'rgba(96, 125, 139, 0.8)'
-    ];
-
-    if (count > colors.length) {
-        for (let i = colors.length; i < count; i++) {
-            const hue = Math.floor(Math.random() * 360);
-            colors.push(`hsla(${hue}, 70%, 60%, 0.8)`);
-        }
-    }
-
-    return colors.slice(0, count);
-}
-
-function showChartLoading(elementId) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        element.style.display = 'block';
-    }
-}
-
-function hideChart(elementId) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        element.style.display = 'none';
-    }
-}
-
-window.addEventListener('DOMContentLoaded', initStatistics);
-
-window.addEventListener('resize', function () {
-    if (periodChart) periodChart.resize();
-    if (subjectChart) subjectChart.resize();
-    if (subjectTrendChart) subjectTrendChart.resize();
-});
+})();

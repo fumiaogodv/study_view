@@ -55,6 +55,11 @@ with app.app_context():
 def index():
     return render_template('index.html')
 
+# 数据统计页面
+@app.route('/statistics')
+def statistics():
+    return render_template('statistics.html')
+
 # 正确写法
 @app.route('/admin')
 def admin_login_page():
@@ -252,6 +257,225 @@ def admin_dashboard():
     if not session.get('logged_in'):
         return redirect('/admin') # 没登录就踢回登录页
     return render_template('admin.html')
+
+# ==================== 统计数据API路由 ====================
+
+# 1. 获取科目列表
+@app.route('/api/statistics/subjects', methods=['GET'])
+def get_subjects():
+    start_date = request.args.get('start', '')
+    end_date = request.args.get('end', '')
+    
+    query = StudyRecord.query
+    
+    if start_date:
+        query = query.filter(StudyRecord.date >= start_date)
+    if end_date:
+        query = query.filter(StudyRecord.date <= end_date)
+    
+    subjects = db.session.query(
+        StudyRecord.task_name,
+        db.func.sum(StudyRecord.duration_sec).label('total_seconds')
+    ).filter(
+        query.whereclause
+    ).group_by(
+        StudyRecord.task_name
+    ).order_by(
+        db.desc('total_seconds')
+    ).all()
+    
+    result = [
+        {
+            'name': subject.task_name,
+            'total_seconds': subject.total_seconds,
+            'duration_hours': round(subject.total_seconds / 3600, 2)
+        }
+        for subject in subjects
+    ]
+    
+    return jsonify(result)
+
+# 2. 获取统计摘要
+@app.route('/api/statistics/summary', methods=['GET'])
+def get_statistics_summary():
+    start_date = request.args.get('start', '')
+    end_date = request.args.get('end', '')
+    
+    query = StudyRecord.query
+    
+    if start_date:
+        query = query.filter(StudyRecord.date >= start_date)
+    if end_date:
+        query = query.filter(StudyRecord.date <= end_date)
+    
+    # 总学习时长（秒）
+    total_seconds = db.session.query(db.func.sum(StudyRecord.duration_sec)).filter(
+        query.whereclause
+    ).scalar() or 0
+    
+    # 不同科目数量
+    subject_count = db.session.query(db.func.count(db.distinct(StudyRecord.task_name))).filter(
+        query.whereclause
+    ).scalar() or 0
+    
+    # 学习天数
+    study_days = db.session.query(db.func.count(db.distinct(StudyRecord.date))).filter(
+        query.whereclause
+    ).scalar() or 0
+    
+    return jsonify({
+        'total_duration_seconds': total_seconds,
+        'total_duration_hours': round(total_seconds / 3600, 2),
+        'subject_count': subject_count,
+        'study_days': study_days
+    })
+
+# 3. 获取周期统计数据
+@app.route('/api/statistics/period', methods=['GET'])
+def get_period_statistics():
+    period = request.args.get('period', 'day')
+    start_date = request.args.get('start', '')
+    end_date = request.args.get('end', '')
+    
+    query = StudyRecord.query
+    
+    if start_date:
+        query = query.filter(StudyRecord.date >= start_date)
+    if end_date:
+        query = query.filter(StudyRecord.date <= end_date)
+    
+    records = query.order_by(StudyRecord.date).all()
+    
+    if period == 'day':
+        # 按天统计
+        daily_data = {}
+        for record in records:
+            date = record.date
+            if date not in daily_data:
+                daily_data[date] = 0
+            daily_data[date] += record.duration_sec
+        
+        result = [
+            {
+                'label': date,
+                'duration_seconds': seconds,
+                'duration_hours': round(seconds / 3600, 2)
+            }
+            for date, seconds in sorted(daily_data.items())
+        ]
+    elif period == 'week':
+        # 按周统计
+        weekly_data = {}
+        for record in records:
+            date_obj = datetime.strptime(record.date, '%Y-%m-%d')
+            year, week_num, _ = date_obj.isocalendar()
+            week_key = f'{year}-W{week_num:02d}'
+            
+            if week_key not in weekly_data:
+                weekly_data[week_key] = 0
+            weekly_data[week_key] += record.duration_sec
+        
+        result = [
+            {
+                'label': week_key,
+                'duration_seconds': seconds,
+                'duration_hours': round(seconds / 3600, 2)
+            }
+            for week_key, seconds in sorted(weekly_data.items())
+        ]
+    else:  # month
+        # 按月统计
+        monthly_data = {}
+        for record in records:
+            date_obj = datetime.strptime(record.date, '%Y-%m-%d')
+            month_key = date_obj.strftime('%Y-%m')
+            
+            if month_key not in monthly_data:
+                monthly_data[month_key] = 0
+            monthly_data[month_key] += record.duration_sec
+        
+        result = [
+            {
+                'label': month_key,
+                'duration_seconds': seconds,
+                'duration_hours': round(seconds / 3600, 2)
+            }
+            for month_key, seconds in sorted(monthly_data.items())
+        ]
+    
+    return jsonify(result)
+
+# 4. 获取科目分布数据
+@app.route('/api/statistics/subject-distribution', methods=['GET'])
+def get_subject_distribution():
+    start_date = request.args.get('start', '')
+    end_date = request.args.get('end', '')
+    
+    query = StudyRecord.query
+    
+    if start_date:
+        query = query.filter(StudyRecord.date >= start_date)
+    if end_date:
+        query = query.filter(StudyRecord.date <= end_date)
+    
+    subjects = db.session.query(
+        StudyRecord.task_name,
+        db.func.sum(StudyRecord.duration_sec).label('total_seconds')
+    ).filter(
+        query.whereclause
+    ).group_by(
+        StudyRecord.task_name
+    ).order_by(
+        db.desc('total_seconds')
+    ).all()
+    
+    result = [
+        {
+            'name': subject.task_name,
+            'total_seconds': subject.total_seconds,
+            'duration_hours': round(subject.total_seconds / 3600, 2)
+        }
+        for subject in subjects
+    ]
+    
+    return jsonify(result)
+
+# 5. 获取特定科目趋势数据
+@app.route('/api/statistics/subject-trend', methods=['GET'])
+def get_subject_trend():
+    subject = request.args.get('subject', '')
+    start_date = request.args.get('start', '')
+    end_date = request.args.get('end', '')
+    
+    if not subject:
+        return jsonify([])
+    
+    query = StudyRecord.query.filter(StudyRecord.task_name == subject)
+    
+    if start_date:
+        query = query.filter(StudyRecord.date >= start_date)
+    if end_date:
+        query = query.filter(StudyRecord.date <= end_date)
+    
+    records = query.order_by(StudyRecord.date).all()
+    
+    daily_data = {}
+    for record in records:
+        date = record.date
+        if date not in daily_data:
+            daily_data[date] = 0
+        daily_data[date] += record.duration_sec
+    
+    result = [
+        {
+            'date': date,
+            'duration_seconds': seconds,
+            'duration_hours': round(seconds / 3600, 2)
+        }
+        for date, seconds in sorted(daily_data.items())
+    ]
+    
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

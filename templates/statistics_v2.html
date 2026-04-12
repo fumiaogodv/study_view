@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>学习数据统计</title>
+    <link rel="stylesheet" href="/static/css/index.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .statistics-container {
+            position: relative;
+            width: 95%;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            color: white;
+        }
+
+        .statistics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .statistics-header h1 {
+            margin: 0;
+            font-weight: 300;
+            letter-spacing: 1px;
+            font-size: 1.5em;
+        }
+
+        .back-btn {
+            background: rgba(76, 175, 80, 0.8);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: rgba(76, 175, 80, 1);
+            transform: translateY(-2px);
+        }
+
+        .controls-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .control-group label {
+            font-weight: bold;
+            min-width: 70px;
+            font-size: 0.9em;
+        }
+
+        select, input, button {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            outline: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        select option {
+            background-color: #222;
+            color: white;
+        }
+
+        .chart-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .chart-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .chart-btn.active {
+            background: rgba(76, 175, 80, 0.8);
+            border-color: rgba(76, 175, 80, 0.5);
+            font-weight: bold;
+        }
+
+        .chart-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            position: relative;
+            min-height: 300px;
+            display: none;
+        }
+
+        .chart-container.active {
+            display: block;
+        }
+
+        .chart-title {
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 1.1em;
+            color: #4CAF50;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 1em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            margin-top: 0;
+            color: #4CAF50;
+            font-size: 1em;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+
+        .stat-desc {
+            font-size: 0.8em;
+            opacity: 0.8;
+        }
+
+        .subject-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .subject-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .subject-item:last-child {
+            border-bottom: none;
+        }
+
+        .subject-name {
+            flex-grow: 1;
+            font-size: 0.9em;
+        }
+
+        .subject-duration {
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .subject-percentage {
+            opacity: 0.7;
+            font-size: 0.8em;
+            margin-left: 8px;
+        }
+
+        .time-period-selector {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .period-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85em;
+        }
+
+        .period-btn.active {
+            background: rgba(76, 175, 80, 0.8);
+            border-color: rgba(76, 175, 80, 0.5);
+        }
+
+        .period-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .date-range-selector {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .date-input {
+            width: 130px;
+        }
+
+        .apply-btn {
+            background: rgba(76, 175, 80, 0.8);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+
+        .apply-btn:hover {
+            background: rgba(76, 175, 80, 1);
+            transform: translateY(-2px);
+        }
+
+        .chart-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .chart-sub-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .statistics-container {
+                width: 98%;
+                padding: 15px;
+                margin: 10px auto;
+            }
+            
+            .statistics-header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            
+            .control-group {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .chart-wrapper {
+                height: 250px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .chart-btn {
+                min-width: 100px;
+                padding: 8px 12px;
+            }
+            
+            .date-range-selector {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .date-input {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .chart-wrapper {
+                height: 200px;
+            }
+            
+            .chart-btn {
+                min-width: 80px;
+                font-size: 0.8em;
+                padding: 6px 10px;
+            }
+            
+            .stat-value {
+                font-size: 1.2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="bg-container">
+        <video id="bg-video" autoplay muted loop playsinline>
+            <source id="video-source" src="/static/videos/nature.mp4" type="video/mp4">
+        </video>
+    </div>
+
+    <div class="statistics-container">
+        <div class="statistics-header">
+            <h1>📊 学习数据统计</h1>
+            <a href="/" class="back-btn">返回首页</a>
+        </div>
+
+        <div class="controls-section">
+            <div class="control-group">
+                <label>日期范围：</label>
+                <div class="date-range-selector">
+                    <input type="date" id="startDate" class="date-input">
+                    <span>至</span>
+                    <input type="date" id="endDate" class="date-input">
+                    <button id="applyDateRange" class="apply-btn">应用</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>科目分析：</label>
+                <select id="subjectSelect">
+                    <option value="">选择科目...</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>📈 总学习时长</h3>
+                <div class="stat-value" id="totalDuration">0 小时</div>
+                <div class="stat-desc">所选时间段内</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>📚 学习科目数</h3>
+                <div class="stat-value" id="subjectCount">0</div>
+                <div class="stat-desc">不同科目的数量</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>📅 学习天数</h3>
+                <div class="stat-value" id="studyDays">0</div>
+                <div class="stat-desc">有学习记录的天数</div>
+            </div>
+        </div>
+
+        <div class="chart-selector">
+            <button class="chart-btn active" data-chart="period">📅 周期统计</button>
+            <button class="chart-btn" data-chart="subject">📚 科目分布</button>
+            <button class="chart-btn" data-chart="trend">📈 科目趋势</button>
+            <button class="chart-btn" data-chart="list">📋 科目列表</button>
+        </div>
+
+        <!-- 周期统计图表 -->
+        <div class="chart-container active" id="periodChartContainer">
+            <div class="chart-controls">
+                <h3 class="chart-title">📅 周期学习趋势</h3>
+                <div class="chart-sub-controls">
+                    <div class="time-period-selector">
+                        <button class="period-btn active" data-period="day">日统计</button>
+                        <button class="period-btn" data-period="week">周统计</button>
+                        <button class="period-btn" data-period="month">月统计</button>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="periodChart"></canvas>
+                <div class="loading" id="periodLoading">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 科目分布图表 -->
+        <div class="chart-container" id="subjectChartContainer">
+            <h3 class="chart-title">📚 科目时长分布</h3>
+            <div class="chart-wrapper">
+                <canvas id="subjectChart"></canvas>
+                <div class="loading" id="subjectLoading">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 科目趋势图表 -->
+        <div class="chart-container" id="trendChartContainer">
+            <h3 class="chart-title">📈 特定科目趋势分析</h3>
+            <div class="chart-wrapper">
+                <canvas id="trendChart"></canvas>
+                <div class="loading" id="trendLoading">请先选择一个科目</div>
+            </div>
+        </div>
+
+        <!-- 科目列表 -->
+        <div class="chart-container" id="listChartContainer">
+            <h3 class="chart-title">📋 科目详细列表</h3>
+            <div class="subject-list" id="subjectList">
+                <!-- 科目列表将通过JavaScript动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/statistics_v2.js"></script>
+</body>
+</html>
